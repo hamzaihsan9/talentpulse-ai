@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TalentPulse AI — Siamese Career Matcher</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-section">
+          <a href="#" class="brand-logo">
+            <div class="brand-icon">T</div>
+            <span class="brand-title">TalentPulse</span>
+          </a>
+        </div>
+        
+        <ul class="nav-links">
+          <li>
+            <a class="nav-item active" data-view="match-view">
+              <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Match & Diagnose</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" data-view="jobs-view">
+              <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>Market Database</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" data-view="metrics-view">
+              <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>PyTorch Architecture</span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-item" data-view="architecture-view">
+              <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Engineering Guide</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="model-badge-status">
+          <span class="status-dot"></span>
+          <span>Dual-Encoder active • PyTorch 2.14</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      
+      <!-- VIEW 1: MATCH & DIAGNOSE -->
+      <section id="match-view" class="view-section active">
+        <div class="section-header">
+          <h1>Semantic Candidate Matcher</h1>
+          <p>Evaluate resume suitability against Pakistan and international AI openings using a trained PyTorch Dual-Encoder neural network.</p>
+        </div>
+
+        <!-- Composer Card -->
+        <div class="composer-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;">Candidate Profile</span>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-secondary" id="load-fresh-btn" style="padding: 4px 10px; font-size: 12px;">Junior Grad (FAST/NUST)</button>
+              <button type="button" class="btn-secondary" id="load-rag-btn" style="padding: 4px 10px; font-size: 12px;">Generative AI / RAG</button>
+              <button type="button" class="btn-secondary" id="load-senior-btn" style="padding: 4px 10px; font-size: 12px;">Senior Deep Learning</button>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="cand-name">Candidate Name</label>
+              <input type="text" id="cand-name" class="text-input" placeholder="e.g., Hamza Tariq" value="Hamza Tariq">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="target-job-select">Target Opening</label>
+              <select id="target-job-select" class="select-input">
+                <option value="">Compare across all active market jobs</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Years of Practical Experience</label>
+            <div class="exp-slider-container">
+              <input type="range" id="exp-slider" class="slider-input" min="0" max="10" step="0.5" value="2.5">
+              <span id="exp-display" class="slider-value-display">2.5 Years</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Select Core Skills (or type in summary below)</label>
+            <div class="chips-container" id="skills-chip-container">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+
+          <div class="field-group" style="margin-top: 16px;">
+            <label class="field-label" for="resume-text">Professional Summary / Technical Experience</label>
+            <textarea id="resume-text" class="textarea-input" placeholder="Paste your resume summary, project descriptions, or technical achievements here..."></textarea>
+          </div>
+
+          <div class="action-row">
+            <span style="font-size: 12.5px; color: var(--text-muted);" id="inference-status-hint">Dual-Encoder loaded with 68 skill dimensions</span>
+            <button type="button" class="btn-primary" id="run-match-btn">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+              <span>Analyze Match & Skill Gaps</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Results Container -->
+        <div id="results-wrapper" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px;">
+            <h2 style="font-family: var(--font-serif); font-size: 22px; font-weight: 500;">Inference Diagnostics</h2>
+            <span id="inference-time-tag" style="font-size: 13px; color: var(--text-secondary);"></span>
+          </div>
+          <div class="results-container" id="match-results-list">
+            <!-- Results injected here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: ACTIVE MARKET JOBS DATABASE -->
+      <section id="jobs-view" class="view-section">
+        <div class="section-header">
+          <h1>Pakistani & Global Tech Openings</h1>
+          <p>Curated from top software firms in Lahore, Karachi, Islamabad, and remote US startups hiring Pakistani AI engineers.</p>
+        </div>
+
+        <div class="jobs-table-container">
+          <table class="jobs-table">
+            <thead>
+              <tr>
+                <th>Company & Role</th>
+                <th>Location & Tier</th>
+                <th>Experience</th>
+                <th>Compensation</th>
+                <th>Core Stack</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-table-body">
+              <!-- Populated via API -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 3: PYTORCH METRICS & ARCHITECTURE -->
+      <section id="metrics-view" class="view-section">
+        <div class="section-header">
+          <h1>PyTorch Model Specs & Training Metrics</h1>
+          <p>Under the hood of the Asymmetric Dual-Tower Siamese Neural Network.</p>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-stat-card">
+            <div class="stat-label">Validation MAE</div>
+            <div class="stat-val" id="metric-mae">5.67%</div>
+          </div>
+          <div class="metric-stat-card">
+            <div class="stat-label">Pearson Correlation</div>
+            <div class="stat-val" id="metric-corr">0.950</div>
+          </div>
+          <div class="metric-stat-card">
+            <div class="stat-label">Latent Embedding Dim</div>
+            <div class="stat-val">64</div>
+          </div>
+          <div class="metric-stat-card">
+            <div class="stat-label">Skill Vocabulary</div>
+            <div class="stat-val" id="metric-vocab">68</div>
+          </div>
+        </div>
+
+        <div class="spec-card">
+          <div class="spec-title">Mathematical Objective & Formulation</div>
+          <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 14px;">
+            The network maps candidate profiles $x_{c} \in \mathbb{R}^D$ and job requirements $x_{j} \in \mathbb{R}^D$ into a continuous $L_2$ normalized hypersphere:
+          </p>
+          <div class="code-snippet">
+u = normalize(W_c(x_c), p=2)
+v = normalize(W_j(x_j), p=2)
+
+Interaction = [u || v || |u - v| || (u ⊙ v)]  # 256-dim feature vector
+Score = Sigmoid(MLP(Interaction)) * 100.0
+
+Loss = 0.35 * CosineEmbeddingLoss(u, v, y_sim) + 0.65 * SmoothL1Loss(Score, y_target)
+          </div>
+        </div>
+
+        <div class="spec-card" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="spec-title" style="margin-bottom: 4px;">Retrain PyTorch Model</div>
+            <p style="font-size: 13.5px; color: var(--text-secondary);">Trigger a background retraining pass over the latest database distribution.</p>
+          </div>
+          <button type="button" class="btn-secondary" id="retrain-btn">Trigger Retraining</button>
+        </div>
+      </section>
+
+      <!-- VIEW 4: ENGINEERING GUIDE -->
+      <section id="architecture-view" class="view-section">
+        <div class="section-header">
+          <h1>Why This Project Wins AI Engineer Interviews</h1>
+          <p>A strategic breakdown of how TalentPulse AI maps directly to interview questions at Systems Ltd, Devsinc, Arbisoft, and remote US firms.</p>
+        </div>
+
+        <div class="spec-card">
+          <div class="spec-title">1. Deep Learning & Custom PyTorch Engineering</div>
+          <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+            Instead of simply calling an external API, this project defines custom PyTorch <code>nn.Module</code> classes: Residual Dense Blocks, Siamese Two-Tower Encoders, L2 hyperspherical projections, and a dual-objective loss function combining Metric Learning (Cosine Embedding Loss) with calibrated score regression (Smooth L1).
+          </p>
+        </div>
+
+        <div class="spec-card">
+          <div class="spec-title">2. Real Data Science & Feature Pipelines</div>
+          <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+            Demonstrates NLP skill taxonomy parsing, boundary-aware regex tokenization, multi-hot feature encodings, experience density normalization, and train/validation splits with MAE and Pearson correlation tracking.
+          </p>
+        </div>
+
+        <div class="spec-card">
+          <div class="spec-title">3. Production Backend & Database Engineering</div>
+          <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+            Features a production-ready asynchronous FastAPI backend structured with SQLAlchemy ORM, SQLite database, Pydantic data validation schemas, and real-time sub-10ms batch inference.
+          </p>
+        </div>
+
+        <div class="spec-card">
+          <div class="spec-title">4. PyCharm & IDE Ready</div>
+          <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+            Modular structure: <code>backend/</code>, <code>model/</code>, <code>data/</code>, and <code>static/</code>. You can open this directory directly in PyCharm, select the project's virtualenv interpreter, and run <code>python -m backend.app</code> or <code>python -m model.train</code> without path errors.
+          </p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

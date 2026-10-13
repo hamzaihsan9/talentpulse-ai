@@ -1,0 +1,22 @@
+# Python
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# PyCharm / IDE local caches
+.idea/workspace.xml
+.idea/shelf/
+
+# Database files (optional, but keep seeded structure)
+*.sqlite3-journal
+*.db-journal
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+*.log

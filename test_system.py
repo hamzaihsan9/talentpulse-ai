@@ -1,0 +1,99 @@
+"""
+End-to-End System Test Suite for TalentPulse AI.
+Tests PyTorch Siamese Matcher, Skill Tokenizer, SQLite Database, and FastAPI REST endpoints.
+"""
+
+import sys
+import unittest
+from pathlib import Path
+
+# Add project root to path
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
+
+import torch
+from model.tokenizer import SkillTokenizer
+from model.architecture import SiameseCareerMatcher
+from backend.database import init_database, JobModel
+from backend.service import CareerMatchingService
+
+
+class TestTalentPulseAI(unittest.TestCase):
+    def setUp(self):
+        self.tokenizer = SkillTokenizer()
+        self.service = CareerMatchingService()
+
+    def test_01_tokenizer_skill_extraction(self):
+        """Verifies boundary-aware regex skill extraction."""
+        sample_text = "I have 3 years of experience writing PyTorch deep learning code, training Transformers with Hugging Face, and deploying on Docker with FastAPI."
+        extracted = self.tokenizer.extract_skills_from_text(sample_text)
+        
+        self.assertIn("PyTorch", extracted)
+        self.assertIn("Docker", extracted)
+        self.assertIn("FastAPI", extracted)
+        self.assertIn("Transformers", extracted)
+        print(f"[Pass] Tokenizer extracted skills: {extracted}")
+
+    def test_02_pytorch_siamese_architecture(self):
+        """Tests PyTorch Dual-Encoder forward pass shapes and score ranges."""
+        feature_dim = self.tokenizer.vocab_size + 2
+        model = SiameseCareerMatcher(feature_dim=feature_dim, hidden_dim=128, embed_dim=64)
+        
+        batch_size = 4
+        dummy_cand = torch.randn(batch_size, feature_dim)
+        dummy_job = torch.randn(batch_size, feature_dim)
+
+        cand_emb, job_emb, scores = model(dummy_cand, dummy_job)
+        
+        self.assertEqual(cand_emb.shape, (batch_size, 64))
+        self.assertEqual(job_emb.shape, (batch_size, 64))
+        self.assertEqual(scores.shape, (batch_size, 1))
+
+        # Test L2 normalization on unit hypersphere
+        cand_norm = torch.norm(cand_emb, p=2, dim=-1)
+        self.assertTrue(torch.allclose(cand_norm, torch.ones(batch_size), atol=1e-5))
+
+        print(f"[Pass] PyTorch Siamese Dual-Encoder verified. Embed shape: {cand_emb.shape}, Score shape: {scores.shape}")
+
+    def test_03_sqlite_database_seeding(self):
+        """Verifies database initialization and job seeding."""
+        session = init_database()
+        job_count = session.query(JobModel).count()
+        self.assertGreater(job_count, 0)
+        
+        first_job = session.query(JobModel).first()
+        self.assertIsNotNone(first_job.title)
+        self.assertIsNotNone(first_job.company)
+        self.assertGreater(len(first_job.required_skills), 0)
+        session.close()
+        print(f"[Pass] SQLite database contains {job_count} seeded tech openings.")
+
+    def test_04_career_matching_service_inference(self):
+        """Verifies full inference pipeline and skill gap diagnostics."""
+        session = init_database()
+        jobs = session.query(JobModel).all()
+        
+        result = self.service.analyze_candidate(
+            full_name="Muhammad Ali",
+            years_experience=3.0,
+            explicit_skills=["Python", "PyTorch", "Transformers", "Docker"],
+            resume_text="Senior ML developer focusing on generative models and neural search.",
+            jobs=jobs
+        )
+        session.close()
+
+        self.assertIn("top_matches", result)
+        self.assertGreater(len(result["top_matches"]), 0)
+        
+        top = result["top_matches"][0]
+        self.assertIn("overall_match_score", top)
+        self.assertIn("cosine_similarity", top)
+        self.assertIn("skill_gap", top)
+        self.assertIn("suggested_roadmap", top)
+        
+        print(f"[Pass] Top matched job: {top['job_title']} at {top['company']}")
+        print(f"       Score: {top['overall_match_score']}%, Cosine: {top['cosine_similarity']}, Readiness: {top['readiness_level']}")
+
+
+if __name__ == "__main__":
+    unittest.main()

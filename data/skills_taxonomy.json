@@ -1,0 +1,28 @@
+{
+  "machine_learning_core": [
+    "PyTorch", "TensorFlow", "Scikit-Learn", "Deep Learning", "Neural Networks", 
+    "Supervised Learning", "Unsupervised Learning", "Reinforcement Learning", 
+    "Gradient Boosting", "XGBoost", "LightGBM", "Model Evaluation", "Cross Validation"
+  ],
+  "deep_learning_nlp": [
+    "Transformers", "Hugging Face", "BERT", "LLMs", "RAG", "LangChain", 
+    "Vector Databases", "Embeddings", "Fine-Tuning", "LoRA", "PEFT", 
+    "Semantic Search", "Prompt Engineering", "Tokenization", "Text Classification"
+  ],
+  "computer_vision": [
+    "OpenCV", "YOLO", "Object Detection", "Image Segmentation", "ResNet", 
+    "CNN", "Vision Transformers", "MediaPipe", "Video Processing"
+  ],
+  "mlops_cloud": [
+    "Docker", "Kubernetes", "MLflow", "Weights & Biases", "AWS SageMaker", 
+    "GCP Vertex AI", "Azure ML", "CI/CD", "Model Serving", "Triton", "FastAPI", "ONNX"
+  ],
+  "software_engineering_data": [
+    "Python", "SQL", "PostgreSQL", "SQLite", "Pandas", "NumPy", "Polars", 
+    "Git", "GitHub Actions", "REST APIs", "AsyncIO", "Data Preprocessing", "Feature Engineering"
+  ],
+  "pakistan_market_specifics": [
+    "Enterprise Solutions", "Client Communication", "Remote Collaboration", 
+    "Agile/Scrum", "Fast-Paced Startup Mindset", "Product Prototyping"
+  ]
+}

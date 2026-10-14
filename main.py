@@ -4,6 +4,7 @@ Launches the FastAPI server with Uvicorn.
 Can be directly executed via PyCharm (Right-Click -> Run 'main') or terminal (python main.py).
 """
 
+import os
 import sys
 import uvicorn
 from pathlib import Path
@@ -23,18 +24,21 @@ def main():
         print("Initialization completed successfully.")
         return
 
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
+
     print("=" * 65)
     print("  TalentPulse AI — Siamese Career Matcher & Skill Diagnostics")
     print("  Production AI Engineering Showcase")
     print("=" * 65)
     print(f"  Project Root: {BASE_DIR}")
-    print("  Starting Server at: http://127.0.0.1:8000")
+    print(f"  Starting Server at: http://{host}:{port}")
     print("=" * 65)
 
     uvicorn.run(
         "backend.app:app",
-        host="127.0.0.1",
-        port=8000,
+        host=host,
+        port=port,
         reload=False,
         log_level="info"
     )

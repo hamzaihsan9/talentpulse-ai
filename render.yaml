@@ -1,0 +1,11 @@
+# Render.com Infrastructure Blueprint for TalentPulse AI
+services:
+  - type: web
+    name: talentpulse-ai
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"

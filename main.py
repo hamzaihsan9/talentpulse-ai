@@ -15,6 +15,14 @@ if str(BASE_DIR) not in sys.path:
 
 
 def main():
+    if "--init-only" in sys.argv:
+        from backend.database import init_database
+        print("Initializing database and models...")
+        db = init_database()
+        db.close()
+        print("Initialization completed successfully.")
+        return
+
     print("=" * 65)
     print("  TalentPulse AI — Siamese Career Matcher & Skill Diagnostics")
     print("  Production AI Engineering Showcase")

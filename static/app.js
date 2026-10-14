@@ -69,6 +69,55 @@ document.addEventListener("DOMContentLoaded", () => {
   const regCaptchaQuestion = document.getElementById("reg-captcha-question");
   const refreshRegCaptchaBtn = document.getElementById("refresh-reg-captcha-btn");
 
+  // DOM Elements - OAuth Credential Modals
+  const googleOAuthModal = document.getElementById("google-oauth-modal");
+  const googleOAuthForm = document.getElementById("google-oauth-form");
+  const googleEmailInput = document.getElementById("google-email-input");
+  const googlePwdInput = document.getElementById("google-pwd-input");
+  const googleOAuthCancelBtn = document.getElementById("google-oauth-cancel-btn");
+  const googleOAuthAlert = document.getElementById("google-oauth-alert");
+
+  const githubOAuthModal = document.getElementById("github-oauth-modal");
+  const githubOAuthForm = document.getElementById("github-oauth-form");
+  const githubEmailInput = document.getElementById("github-email-input");
+  const githubPwdInput = document.getElementById("github-pwd-input");
+  const githubOAuthCancelBtn = document.getElementById("github-oauth-cancel-btn");
+  const githubOAuthAlert = document.getElementById("github-oauth-alert");
+
+  // DOM Elements - PDF CV Upload
+  const pdfDropzone = document.getElementById("pdf-dropzone");
+  const cvPdfInput = document.getElementById("cv-pdf-input");
+  const browsePdfBtn = document.getElementById("browse-pdf-btn");
+  const pdfStatusBanner = document.getElementById("pdf-status-banner");
+  const pdfFileInfo = document.getElementById("pdf-file-info");
+  const pdfSkillsSummary = document.getElementById("pdf-skills-summary");
+
+  // DOM Elements - Knowledge Graph
+  const graphCanvas = document.getElementById("knowledge-graph-canvas");
+  const graphNodeCount = document.getElementById("graph-node-count");
+  const graphLinkCount = document.getElementById("graph-link-count");
+  const graphSkillsCount = document.getElementById("graph-skills-count");
+  const graphHighMatchCount = document.getElementById("graph-high-match-count");
+  const graphFilterBtns = document.querySelectorAll(".graph-filter-btn");
+  const graphSearchInput = document.getElementById("graph-search-input");
+  const graphResetBtn = document.getElementById("graph-reset-btn");
+  const graphInspectorCard = document.getElementById("graph-inspector-card");
+  const inspectorBadge = document.getElementById("inspector-badge");
+  const inspectorTitle = document.getElementById("inspector-title");
+  const inspectorMeta = document.getElementById("inspector-meta");
+  const inspectorDetails = document.getElementById("inspector-details");
+  const inspectorActions = document.getElementById("inspector-actions");
+  const closeInspectorBtn = document.getElementById("close-inspector-btn");
+
+  // DOM Elements - AI Assistant
+  const assistantToggleBtn = document.getElementById("assistant-toggle-btn");
+  const assistantDrawer = document.getElementById("assistant-drawer");
+  const closeAssistantBtn = document.getElementById("close-assistant-btn");
+  const assistantQuickChips = document.querySelectorAll(".assistant-quick-chip");
+  const assistantChatMessages = document.getElementById("assistant-chat-messages");
+  const assistantChatForm = document.getElementById("assistant-chat-form");
+  const assistantInput = document.getElementById("assistant-input");
+
   // Demo Profiles for quick-load
   const demoProfiles = {
     junior: {
@@ -125,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Load platform data once authenticated
       loadSkills();
       loadJobs();
-      loadMetrics();
+      loadKnowledgeGraph();
     } else {
       document.body.classList.remove("authenticated");
       document.body.classList.add("not-authenticated");
@@ -346,67 +395,168 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Handle Google OAuth Sign-In
-  googleLoginBtn.addEventListener("click", async () => {
+  // Handle Google OAuth Sign-In Modal
+  googleLoginBtn.addEventListener("click", () => {
     clearAuthAlert();
-    const promptEmail = prompt("Continue with Google:\nEnter your Gmail or Workspace email:", "hamza.ihsan@gmail.com");
-    if (!promptEmail || !promptEmail.includes("@")) return;
-
-    try {
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: promptEmail.trim().toLowerCase(),
-          full_name: promptEmail.split("@")[0].replace(".", " ").replace(/\b\w/g, c => c.toUpperCase())
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "Google authentication failed.");
-        return;
-      }
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-      updateAuthUI();
-    } catch (err) {
-      showAuthAlert("Google OAuth error: " + err.message);
+    if (googleOAuthAlert) googleOAuthAlert.style.display = "none";
+    if (googleOAuthModal) {
+      googleOAuthModal.style.display = "flex";
+      googleEmailInput.value = "";
+      googlePwdInput.value = "";
+      googleEmailInput.focus();
     }
   });
 
-  // Handle GitHub OAuth Sign-In
-  githubLoginBtn.addEventListener("click", async () => {
-    clearAuthAlert();
-    const promptUsername = prompt("Continue with GitHub:\nEnter your GitHub username or developer email:", "hamzaihsan9");
-    if (!promptUsername) return;
+  if (googleOAuthCancelBtn) {
+    googleOAuthCancelBtn.addEventListener("click", () => {
+      if (googleOAuthModal) googleOAuthModal.style.display = "none";
+    });
+  }
 
-    const email = promptUsername.includes("@") ? promptUsername : `${promptUsername.toLowerCase()}@users.noreply.github.com`;
+  if (googleOAuthForm) {
+    googleOAuthForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = googleEmailInput.value.trim().toLowerCase();
+      const password = googlePwdInput.value.trim();
 
-    try {
-      const res = await fetch("/api/auth/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          full_name: promptUsername.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "GitHub authentication failed.");
+      if (!email || !password) {
+        if (googleOAuthAlert) {
+          googleOAuthAlert.textContent = "Please provide your Gmail address and account password / verification code.";
+          googleOAuthAlert.className = "auth-alert error";
+          googleOAuthAlert.style.display = "block";
+        }
         return;
       }
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-      updateAuthUI();
-    } catch (err) {
-      showAuthAlert("GitHub OAuth error: " + err.message);
+
+      const submitBtn = document.getElementById("google-oauth-submit-btn");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Verifying...";
+      }
+
+      try {
+        const res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            full_name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          if (googleOAuthAlert) {
+            googleOAuthAlert.textContent = data.detail || "Google verification failed. Check your password.";
+            googleOAuthAlert.className = "auth-alert error";
+            googleOAuthAlert.style.display = "block";
+          }
+          return;
+        }
+
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem("talentpulse_token", authToken);
+        localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+        if (googleOAuthModal) googleOAuthModal.style.display = "none";
+        updateAuthUI();
+      } catch (err) {
+        if (googleOAuthAlert) {
+          googleOAuthAlert.textContent = "Google OAuth network error: " + err.message;
+          googleOAuthAlert.className = "auth-alert error";
+          googleOAuthAlert.style.display = "block";
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Verify & Sign In";
+        }
+      }
+    });
+  }
+
+  // Handle GitHub OAuth Sign-In Modal
+  githubLoginBtn.addEventListener("click", () => {
+    clearAuthAlert();
+    if (githubOAuthAlert) githubOAuthAlert.style.display = "none";
+    if (githubOAuthModal) {
+      githubOAuthModal.style.display = "flex";
+      githubEmailInput.value = "";
+      githubPwdInput.value = "";
+      githubEmailInput.focus();
     }
   });
+
+  if (githubOAuthCancelBtn) {
+    githubOAuthCancelBtn.addEventListener("click", () => {
+      if (githubOAuthModal) githubOAuthModal.style.display = "none";
+    });
+  }
+
+  if (githubOAuthForm) {
+    githubOAuthForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const emailOrUser = githubEmailInput.value.trim();
+      const password = githubPwdInput.value.trim();
+
+      if (!emailOrUser || !password) {
+        if (githubOAuthAlert) {
+          githubOAuthAlert.textContent = "Please provide your GitHub username/email and password/token.";
+          githubOAuthAlert.className = "auth-alert error";
+          githubOAuthAlert.style.display = "block";
+        }
+        return;
+      }
+
+      const email = emailOrUser.includes("@") ? emailOrUser.toLowerCase() : `${emailOrUser.toLowerCase()}@users.noreply.github.com`;
+      const submitBtn = document.getElementById("github-oauth-submit-btn");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Authorizing...";
+      }
+
+      try {
+        const res = await fetch("/api/auth/github", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email,
+            password: password,
+            full_name: emailOrUser.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          if (githubOAuthAlert) {
+            githubOAuthAlert.textContent = data.detail || "GitHub authorization failed. Check your password or token.";
+            githubOAuthAlert.className = "auth-alert error";
+            githubOAuthAlert.style.display = "block";
+          }
+          return;
+        }
+
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem("talentpulse_token", authToken);
+        localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+        if (githubOAuthModal) githubOAuthModal.style.display = "none";
+        updateAuthUI();
+      } catch (err) {
+        if (githubOAuthAlert) {
+          githubOAuthAlert.textContent = "GitHub OAuth network error: " + err.message;
+          githubOAuthAlert.className = "auth-alert error";
+          githubOAuthAlert.style.display = "block";
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Authorize";
+        }
+      }
+    });
+  }
 
   // Handle Logout
   async function handleLogout() {
@@ -436,7 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const viewTitles = {
     "match-view": "Match & Diagnose",
     "jobs-view": "Market Openings",
-    "metrics-view": "Precision Analytics",
+    "graph-view": "Knowledge Graph",
     "architecture-view": "Platform Insights"
   };
 
@@ -452,6 +602,9 @@ document.addEventListener("DOMContentLoaded", () => {
         targetElem.classList.add("active");
         if (activeViewTitle && viewTitles[targetView]) {
           activeViewTitle.textContent = viewTitles[targetView];
+        }
+        if (targetView === "graph-view") {
+          loadKnowledgeGraph();
         }
       }
     });
@@ -486,6 +639,135 @@ document.addEventListener("DOMContentLoaded", () => {
         chip.classList.remove("selected");
       }
     });
+  }
+
+  // ==============================================================================
+  // 2.1 PDF RESUME / CV UPLOADER (Strictly PDF format)
+  // ==============================================================================
+
+  if (browsePdfBtn && cvPdfInput) {
+    browsePdfBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      cvPdfInput.click();
+    });
+
+    cvPdfInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) handlePDFFile(file);
+    });
+  }
+
+  if (pdfDropzone) {
+    pdfDropzone.addEventListener("click", (e) => {
+      if (e.target !== browsePdfBtn && cvPdfInput) {
+        cvPdfInput.click();
+      }
+    });
+
+    ["dragenter", "dragover"].forEach(eventName => {
+      pdfDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        pdfDropzone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach(eventName => {
+      pdfDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        pdfDropzone.classList.remove("dragover");
+      });
+    });
+
+    pdfDropzone.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      const file = dt.files && dt.files[0];
+      if (file) handlePDFFile(file);
+    });
+  }
+
+  async function handlePDFFile(file) {
+    if (!authToken) {
+      alert("Please sign in before uploading your CV.");
+      updateAuthUI();
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Unsupported file format. Please upload your resume in PDF format only (.pdf).");
+      return;
+    }
+
+    if (pdfStatusBanner) {
+      pdfStatusBanner.style.display = "flex";
+      pdfFileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      pdfSkillsSummary.textContent = "Extracting technical keywords...";
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/cv/upload-pdf", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${authToken}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.detail || "PDF upload and parsing failed.");
+        if (pdfSkillsSummary) pdfSkillsSummary.textContent = "Parsing failed";
+        return;
+      }
+
+      // Auto-populate candidate profile
+      if (data.extracted_skills && data.extracted_skills.length > 0) {
+        selectedSkills.clear();
+        data.extracted_skills.forEach(skill => selectedSkills.add(skill));
+
+        document.querySelectorAll(".skill-chip").forEach(chip => {
+          if (selectedSkills.has(chip.textContent)) {
+            chip.classList.add("selected");
+          } else {
+            chip.classList.remove("selected");
+          }
+        });
+      }
+
+      if (data.years_experience !== undefined && data.years_experience !== null) {
+        expSlider.value = data.years_experience;
+        expDisplay.textContent = `${data.years_experience.toFixed(1)} ${data.years_experience === 1 ? 'Year' : 'Years'}`;
+      }
+
+      if (data.summary_excerpt) {
+        resumeTextInput.value = data.summary_excerpt;
+      }
+
+      if (pdfSkillsSummary) {
+        pdfSkillsSummary.textContent = `${data.total_skills_found} technical skills extracted`;
+      }
+
+      // Immediately render matches if returned
+      if (data.top_matches && data.top_matches.length > 0) {
+        renderMatchResults({
+          candidate_name: currentUser ? currentUser.full_name : "Candidate",
+          extracted_skills: data.extracted_skills,
+          years_experience: data.years_experience,
+          top_matches: data.top_matches,
+          model_inference_ms: 12.0
+        });
+      }
+
+      // Reload knowledge graph with candidate's newly extracted skills
+      loadKnowledgeGraph();
+
+    } catch (err) {
+      alert("Network error while uploading CV: " + err.message);
+      if (pdfSkillsSummary) pdfSkillsSummary.textContent = "Upload failed";
+    }
   }
 
   // ==============================================================================
@@ -754,46 +1036,616 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     resultsWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    loadKnowledgeGraph();
   }
 
   // ==============================================================================
-  // 5. METRICS & RECALIBRATION
+  // 5. USER KNOWLEDGE GRAPH (Interactive Canvas with Particle Simulation)
   // ==============================================================================
 
-  async function loadMetrics() {
-    try {
-      const res = await fetch("/api/model/metrics");
-      const metrics = await res.json();
-      if (metrics.val_mae) {
-        document.getElementById("metric-mae").textContent = `${metrics.val_mae}%`;
-      }
-      if (metrics.val_r2 && metrics.val_r2.length) {
-        const lastR2 = metrics.val_r2[metrics.val_r2.length - 1];
-        document.getElementById("metric-corr").textContent = lastR2.toFixed(3);
-      }
-      if (metrics.vocab_size) {
-        document.getElementById("metric-vocab").textContent = metrics.vocab_size;
-      }
-    } catch (err) {
-      console.error("Failed to load metrics:", err);
-    }
-  }
+  let graphNodes = [];
+  let graphLinks = [];
+  let graphFilter = "all";
+  let graphSearchQuery = "";
+  let hoveredNode = null;
+  let draggedNode = null;
+  let animFrameId = null;
 
-  retrainBtn.addEventListener("click", async () => {
-    retrainBtn.disabled = true;
-    retrainBtn.textContent = "Initiating Calibration...";
+  const nodeColorMap = {
+    user: "#0D734B",
+    skill: "#06B6D4",
+    job: "#6366F1",
+    company: "#8B5CF6",
+    gap: "#F59E0B"
+  };
+
+  async function loadKnowledgeGraph() {
+    if (!authToken || !graphCanvas) return;
+
     try {
-      const res = await fetch("/api/model/retrain", { method: "POST" });
+      const skillsQuery = Array.from(selectedSkills).join(",");
+      const yearsExpQuery = parseFloat(expSlider.value) || 2.0;
+      const url = `/api/knowledge-graph?skills=${encodeURIComponent(skillsQuery)}&years_exp=${yearsExpQuery}`;
+
+      const res = await fetch(url, {
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+      if (!res.ok) return;
+
       const data = await res.json();
-      alert(data.message || "Model calibration cycle triggered!");
-      setTimeout(loadMetrics, 4000);
+
+      // Update KPI Bar
+      if (graphNodeCount) graphNodeCount.textContent = data.summary.total_entities || data.nodes.length;
+      if (graphLinkCount) graphLinkCount.textContent = data.summary.total_connections || data.links.length;
+      if (graphSkillsCount) graphSkillsCount.textContent = data.summary.acquired_skills || data.nodes.filter(n => n.type === "skill").length;
+      if (graphHighMatchCount) graphHighMatchCount.textContent = data.summary.high_fit_hubs || 0;
+
+      // Initialize Simulation Nodes & Links
+      initGraphSimulation(data.nodes, data.links);
     } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      retrainBtn.disabled = false;
-      retrainBtn.textContent = "Trigger Model Calibration";
+      console.warn("Knowledge graph load error:", err);
     }
+  }
+
+  function initGraphSimulation(rawNodes, rawLinks) {
+    if (!graphCanvas) return;
+    const rect = graphCanvas.getBoundingClientRect();
+    const width = rect.width || 800;
+    const height = rect.height || 560;
+
+    // Set canvas internal resolution for crisp retina rendering
+    const dpr = window.devicePixelRatio || 1;
+    graphCanvas.width = width * dpr;
+    graphCanvas.height = height * dpr;
+    const ctx = graphCanvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    const nodeMap = new Map();
+    const total = rawNodes.length;
+
+    graphNodes = rawNodes.map((n, i) => {
+      let r = 7;
+      if (n.type === "user") r = 16;
+      else if (n.type === "job") r = 11;
+      else if (n.type === "skill") r = 8.5;
+      else if (n.type === "company") r = 8;
+      else if (n.type === "gap") r = 8;
+
+      let initX, initY;
+      if (n.type === "user") {
+        initX = centerX;
+        initY = centerY;
+      } else {
+        let orbitRadius = 130;
+        if (n.type === "skill") orbitRadius = 90 + Math.random() * 50;
+        else if (n.type === "job") orbitRadius = 170 + Math.random() * 60;
+        else if (n.type === "company") orbitRadius = 230 + Math.random() * 40;
+        else if (n.type === "gap") orbitRadius = 150 + Math.random() * 70;
+
+        const angle = (i / total) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+        initX = centerX + Math.cos(angle) * orbitRadius;
+        initY = centerY + Math.sin(angle) * orbitRadius;
+      }
+
+      const nodeObj = {
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        group: n.group,
+        val: n.val,
+        meta: n.meta || {},
+        radius: r,
+        color: nodeColorMap[n.type] || "#10B981",
+        x: initX,
+        y: initY,
+        vx: 0,
+        vy: 0,
+        pinned: n.type === "user"
+      };
+      nodeMap.set(n.id, nodeObj);
+      return nodeObj;
+    });
+
+    graphLinks = rawLinks
+      .map(l => ({
+        sourceNode: nodeMap.get(l.source),
+        targetNode: nodeMap.get(l.target),
+        type: l.type,
+        weight: l.weight || 1.0,
+        label: l.label
+      }))
+      .filter(l => l.sourceNode && l.targetNode);
+
+    startGraphAnimation(width, height);
+  }
+
+  function startGraphAnimation(width, height) {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+
+    function step() {
+      const kRepel = 700;
+      const kSpring = 0.04;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      // Repulsion between all nodes
+      for (let i = 0; i < graphNodes.length; i++) {
+        const n1 = graphNodes[i];
+        for (let j = i + 1; j < graphNodes.length; j++) {
+          const n2 = graphNodes[j];
+          const dx = n2.x - n1.x;
+          const dy = n2.y - n1.y;
+          const distSq = dx * dx + dy * dy + 100;
+          const dist = Math.sqrt(distSq);
+          const force = kRepel / distSq;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+
+          if (!n1.pinned && n1 !== draggedNode) {
+            n1.vx -= fx;
+            n1.vy -= fy;
+          }
+          if (!n2.pinned && n2 !== draggedNode) {
+            n2.vx += fx;
+            n2.vy += fy;
+          }
+        }
+
+        // Center gravity
+        if (!n1.pinned && n1 !== draggedNode) {
+          n1.vx += (centerX - n1.x) * 0.002;
+          n1.vy += (centerY - n1.y) * 0.002;
+        }
+      }
+
+      // Spring attraction along links
+      for (let l of graphLinks) {
+        const n1 = l.sourceNode;
+        const n2 = l.targetNode;
+        const dx = n2.x - n1.x;
+        const dy = n2.y - n1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const targetDist = l.type === "possesses" ? 95 : (l.type === "evaluated" ? 140 : 110);
+        const force = (dist - targetDist) * kSpring;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+
+        if (!n1.pinned && n1 !== draggedNode) {
+          n1.vx += fx;
+          n1.vy += fy;
+        }
+        if (!n2.pinned && n2 !== draggedNode) {
+          n2.vx -= fx;
+          n2.vy += fy;
+        }
+      }
+
+      // Position update & damping
+      for (let n of graphNodes) {
+        if (!n.pinned && n !== draggedNode) {
+          n.vx *= 0.82;
+          n.vy *= 0.82;
+          n.x += n.vx;
+          n.y += n.vy;
+
+          n.x = Math.max(n.radius + 12, Math.min(width - n.radius - 12, n.x));
+          n.y = Math.max(n.radius + 12, Math.min(height - n.radius - 12, n.y));
+        }
+      }
+
+      renderGraphCanvas(width, height);
+      animFrameId = requestAnimationFrame(step);
+    }
+
+    step();
+  }
+
+  function renderGraphCanvas(width, height) {
+    if (!graphCanvas) return;
+    const ctx = graphCanvas.getContext("2d");
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw grid pattern dots
+    ctx.fillStyle = "rgba(16, 185, 129, 0.07)";
+    const dotSpacing = 28;
+    for (let x = 14; x < width; x += dotSpacing) {
+      for (let y = 14; y < height; y += dotSpacing) {
+        ctx.fillRect(x, y, 1.5, 1.5);
+      }
+    }
+
+    function isNodeFiltered(n) {
+      if (graphFilter === "skills") return n.type === "skill" || n.type === "user";
+      if (graphFilter === "jobs") return n.type === "job" || n.type === "company" || n.type === "user";
+      if (graphFilter === "gaps") return n.type === "gap" || n.type === "job";
+      return true;
+    }
+
+    function isNodeSearchMatch(n) {
+      if (!graphSearchQuery) return false;
+      return n.label.toLowerCase().includes(graphSearchQuery.toLowerCase());
+    }
+
+    // Draw Links
+    for (let l of graphLinks) {
+      const activeLink = isNodeFiltered(l.sourceNode) && isNodeFiltered(l.targetNode);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(l.sourceNode.x, l.sourceNode.y);
+      ctx.lineTo(l.targetNode.x, l.targetNode.y);
+
+      if (l.type === "gap") {
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = activeLink ? "rgba(245, 158, 11, 0.55)" : "rgba(245, 158, 11, 0.12)";
+        ctx.lineWidth = 1.2;
+      } else if (l.type === "evaluated") {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = activeLink ? "rgba(99, 102, 241, 0.45)" : "rgba(99, 102, 241, 0.1)";
+        ctx.lineWidth = 1.6;
+      } else {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = activeLink ? "rgba(16, 185, 129, 0.35)" : "rgba(16, 185, 129, 0.08)";
+        ctx.lineWidth = 1.2;
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw Nodes
+    for (let n of graphNodes) {
+      const isFiltered = isNodeFiltered(n);
+      const isSearchHit = isNodeSearchMatch(n);
+      const isHovered = hoveredNode === n;
+
+      ctx.save();
+      ctx.globalAlpha = isFiltered ? 1.0 : 0.18;
+
+      if (n.type === "user" || isHovered || isSearchHit) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius + 6, 0, Math.PI * 2);
+        ctx.fillStyle = isSearchHit ? "rgba(245, 158, 11, 0.35)" : `${n.color}33`;
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      ctx.fillStyle = n.color;
+      ctx.fill();
+      ctx.lineWidth = isHovered || isSearchHit ? 2.5 : 1.5;
+      ctx.strokeStyle = isSearchHit ? "#F59E0B" : "#FFFFFF";
+      ctx.stroke();
+
+      ctx.font = n.type === "user" ? "600 12px var(--font-sans)" : (n.type === "job" ? "500 11px var(--font-sans)" : "400 10.5px var(--font-sans)");
+      ctx.fillStyle = isHovered ? "#000000" : (isFiltered ? "#14221A" : "#8A9F94");
+      ctx.textAlign = "center";
+      ctx.fillText(n.label, n.x, n.y + n.radius + 12);
+
+      ctx.restore();
+    }
+  }
+
+  // Knowledge Graph Mouse / Touch Interactions
+  if (graphCanvas) {
+    function getNodeAt(x, y) {
+      for (let i = graphNodes.length - 1; i >= 0; i--) {
+        const n = graphNodes[i];
+        const dx = x - n.x;
+        const dy = y - n.y;
+        if (Math.hypot(dx, dy) <= n.radius + 5) {
+          return n;
+        }
+      }
+      return null;
+    }
+
+    graphCanvas.addEventListener("mousemove", (e) => {
+      const rect = graphCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      if (draggedNode) {
+        draggedNode.x = mx;
+        draggedNode.y = my;
+        draggedNode.vx = 0;
+        draggedNode.vy = 0;
+      } else {
+        const hit = getNodeAt(mx, my);
+        if (hit !== hoveredNode) {
+          hoveredNode = hit;
+          graphCanvas.style.cursor = hit ? "pointer" : "grab";
+        }
+      }
+    });
+
+    graphCanvas.addEventListener("mousedown", (e) => {
+      const rect = graphCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const hit = getNodeAt(mx, my);
+      if (hit) {
+        draggedNode = hit;
+        graphCanvas.style.cursor = "grabbing";
+        showNodeInspector(hit);
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (draggedNode) {
+        draggedNode = null;
+        graphCanvas.style.cursor = hoveredNode ? "pointer" : "grab";
+      }
+    });
+  }
+
+  function showNodeInspector(node) {
+    if (!graphInspectorCard) return;
+    graphInspectorCard.style.display = "block";
+    if (inspectorBadge) {
+      inspectorBadge.textContent = node.group.toUpperCase();
+      inspectorBadge.className = `inspector-badge ${node.type}`;
+    }
+    if (inspectorTitle) inspectorTitle.textContent = node.label;
+
+    if (inspectorMeta) {
+      if (node.type === "job") {
+        inspectorMeta.textContent = `${node.meta.company || ''} • ${node.meta.location || ''} • Match: ${node.meta.match_score ? node.meta.match_score.toFixed(1) + '%' : 'Calculated'}`;
+      } else if (node.type === "skill") {
+        inspectorMeta.textContent = `Acquired Candidate Competency • Verified in Profile`;
+      } else if (node.type === "gap") {
+        inspectorMeta.textContent = `Identified Skill Deficit • Recommended for high-fit roles`;
+      } else if (node.type === "company") {
+        inspectorMeta.textContent = `Employer Partner • Tier: ${node.meta.tier || 'Tech Enterprise'}`;
+      } else {
+        inspectorMeta.textContent = `Candidate Identity Root Node`;
+      }
+    }
+
+    if (inspectorDetails) {
+      if (node.type === "job" && node.meta.missing_skills) {
+        inspectorDetails.innerHTML = `<strong>Required Missing:</strong> ${node.meta.missing_skills.join(", ") || "None (Fully Matched)"}<br><strong>Salary:</strong> ${node.meta.salary || 'Market Competitive'}`;
+      } else if (node.type === "gap" && node.meta.required_by) {
+        inspectorDetails.innerHTML = `<strong>Required By:</strong> ${node.meta.required_by.join(", ")}`;
+      } else if (node.type === "skill") {
+        inspectorDetails.innerHTML = `Active in candidate embedding space. Enables semantic similarity alignment.`;
+      } else {
+        inspectorDetails.innerHTML = `Connected to platform semantic hubs and market opportunities.`;
+      }
+    }
+
+    if (inspectorActions) {
+      inspectorActions.innerHTML = "";
+      if (node.type === "job") {
+        const applyHref = node.meta.apply_url || `https://www.google.com/search?q=${encodeURIComponent((node.meta.company || '') + ' careers')}`;
+        const applyLink = document.createElement("a");
+        applyLink.href = applyHref;
+        applyLink.target = "_blank";
+        applyLink.rel = "noopener noreferrer";
+        applyLink.className = "btn-apply btn-apply-sm";
+        applyLink.innerHTML = `<span>Apply</span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+        inspectorActions.appendChild(applyLink);
+      } else if (node.type === "gap") {
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "btn-secondary";
+        addBtn.style.padding = "4px 8px";
+        addBtn.style.fontSize = "11.5px";
+        addBtn.textContent = "+ Add to My Skills";
+        addBtn.addEventListener("click", () => {
+          selectedSkills.add(node.label);
+          document.querySelectorAll(".skill-chip").forEach(chip => {
+            if (chip.textContent === node.label) chip.classList.add("selected");
+          });
+          loadKnowledgeGraph();
+          showNodeInspector(node);
+        });
+        inspectorActions.appendChild(addBtn);
+      }
+    }
+  }
+
+  if (closeInspectorBtn) {
+    closeInspectorBtn.addEventListener("click", () => {
+      if (graphInspectorCard) graphInspectorCard.style.display = "none";
+    });
+  }
+
+  // Knowledge Graph Filter Buttons
+  graphFilterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      graphFilterBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      graphFilter = btn.getAttribute("data-filter") || "all";
+    });
   });
+
+  // Search input in graph
+  if (graphSearchInput) {
+    graphSearchInput.addEventListener("input", (e) => {
+      graphSearchQuery = e.target.value.trim();
+    });
+  }
+
+  // Reset graph button
+  if (graphResetBtn) {
+    graphResetBtn.addEventListener("click", () => {
+      if (graphSearchInput) graphSearchInput.value = "";
+      graphSearchQuery = "";
+      graphFilter = "all";
+      graphFilterBtns.forEach((b, i) => b.classList.toggle("active", i === 0));
+      if (graphInspectorCard) graphInspectorCard.style.display = "none";
+      loadKnowledgeGraph();
+    });
+  }
+
+  // ==============================================================================
+  // 6. PULSEAI CAREER ASSISTANT (Drawer & Domain Guardrail Interceptor)
+  // ==============================================================================
+
+  if (assistantToggleBtn && assistantDrawer) {
+    assistantToggleBtn.addEventListener("click", () => {
+      const isVisible = assistantDrawer.style.display !== "none";
+      assistantDrawer.style.display = isVisible ? "none" : "flex";
+      if (!isVisible && assistantInput) assistantInput.focus();
+    });
+  }
+
+  if (closeAssistantBtn && assistantDrawer) {
+    closeAssistantBtn.addEventListener("click", () => {
+      assistantDrawer.style.display = "none";
+    });
+  }
+
+  // Quick Chips
+  assistantQuickChips.forEach(chip => {
+    chip.addEventListener("click", () => {
+      const prompt = chip.getAttribute("data-prompt");
+      if (prompt && assistantInput) {
+        assistantInput.value = prompt;
+        if (assistantChatForm) {
+          assistantChatForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+      }
+    });
+  });
+
+  // Chat Form Submission
+  if (assistantChatForm) {
+    assistantChatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const query = assistantInput.value.trim();
+      if (!query) return;
+
+      if (!authToken) {
+        alert("Please sign in to chat with the PulseAI Career Assistant.");
+        updateAuthUI();
+        return;
+      }
+
+      // Append user bubble
+      appendChatMessage(query, "user");
+      assistantInput.value = "";
+
+      // Append loading indicator
+      const loadingBubble = appendChatMessage("Analyzing market signals and career graph...", "assistant", false, true);
+
+      try {
+        const res = await fetch("/api/assistant/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            message: query,
+            current_skills: Array.from(selectedSkills),
+            years_experience: parseFloat(expSlider.value) || 2.0
+          })
+        });
+
+        const data = await res.json();
+        if (loadingBubble && loadingBubble.parentNode) {
+          loadingBubble.remove();
+        }
+
+        if (!res.ok) {
+          appendChatMessage(data.detail || "Assistant service unavailable.", "assistant", true);
+          return;
+        }
+
+        if (data.is_error) {
+          // Off-topic or guardrail violation (e.g. "make biryani")
+          appendChatMessage(data.reply, "assistant", true);
+        } else {
+          // Success response
+          appendChatMessage(data.reply, "assistant", false, false, data.suggested_jobs);
+        }
+      } catch (err) {
+        if (loadingBubble && loadingBubble.parentNode) {
+          loadingBubble.remove();
+        }
+        appendChatMessage("Network connection error: " + err.message, "assistant", true);
+      }
+    });
+  }
+
+  function appendChatMessage(text, sender = "assistant", isError = false, isLoading = false, jobs = null) {
+    if (!assistantChatMessages) return null;
+
+    const row = document.createElement("div");
+    row.className = `chat-msg ${sender}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = `msg-bubble ${isError ? 'error' : ''}`;
+
+    if (isLoading) {
+      bubble.innerHTML = `<span style="display: inline-block; animation: spin 1s infinite linear;">⟳</span> ${escapeHtml(text)}`;
+    } else if (isError) {
+      bubble.innerHTML = `<strong>🛡️ Guardrail Alert:</strong><br>${escapeHtml(text).replace(/\n/g, '<br>')}`;
+    } else {
+      let formatted = escapeHtml(text)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+
+      bubble.innerHTML = formatted;
+
+      if (jobs && jobs.length > 0) {
+        jobs.slice(0, 3).forEach(j => {
+          const jobCard = document.createElement("div");
+          jobCard.className = "chat-job-card";
+          const applyHref = j.apply_url || `https://www.google.com/search?q=${encodeURIComponent(j.company + ' careers')}`;
+          jobCard.innerHTML = `
+            <div class="chat-job-card-title">${escapeHtml(j.title)}</div>
+            <div class="chat-job-card-sub">${escapeHtml(j.company)} • ${escapeHtml(j.location)} • <span style="color: var(--accent-green); font-weight: 600;">${j.match_score ? j.match_score.toFixed(1) + '%' : 'Match'}</span></div>
+            <div class="chat-job-card-actions">
+              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(j.salary_range || 'Competitive')}</span>
+              <a href="${applyHref}" target="_blank" rel="noopener noreferrer" class="btn-apply btn-apply-sm">
+                <span>Apply</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              </a>
+            </div>
+          `;
+          bubble.appendChild(jobCard);
+        });
+      }
+    }
+
+    row.appendChild(bubble);
+    assistantChatMessages.appendChild(row);
+    assistantChatMessages.scrollTop = assistantChatMessages.scrollHeight;
+    return row;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Safe Recalibration Hook (if element present)
+  if (retrainBtn) {
+    retrainBtn.addEventListener("click", async () => {
+      retrainBtn.disabled = true;
+      retrainBtn.textContent = "Initiating Calibration...";
+      try {
+        const res = await fetch("/api/model/retrain", { method: "POST" });
+        const data = await res.json();
+        alert(data.message || "Model calibration cycle triggered!");
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        retrainBtn.disabled = false;
+        retrainBtn.textContent = "Trigger Model Calibration";
+      }
+    });
+  }
 
   // Start with session check
   verifyCurrentSession();

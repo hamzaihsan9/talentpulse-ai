@@ -164,6 +164,367 @@ class CareerMatchingService:
 
         return steps
 
+    def parse_pdf_cv(self, pdf_bytes: bytes, jobs: List[JobModel], candidate_name: str = "Candidate") -> Dict:
+        """
+        Parses resume from PDF binary bytes:
+        - Extracts raw text across pages using pypdf
+        - Tokenizes technical competencies against standardized dictionary
+        - Infers years of experience via contextual regex heuristic
+        - Executes model matching against active tech market openings
+        """
+        import io
+        import re
+        import pypdf
+
+        try:
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        except Exception as e:
+            raise ValueError(f"Failed to read PDF structure: {str(e)}")
+
+        page_texts = []
+        for i, page in enumerate(reader.pages):
+            try:
+                t = page.extract_text()
+                if t:
+                    page_texts.append(t)
+            except Exception:
+                continue
+
+        full_text = "\n".join(page_texts).strip()
+        if not full_text:
+            raise ValueError("Could not extract readable text from PDF. The document may be empty or an image scan.")
+
+        # 1. Extract technical competencies
+        extracted_skills = self.tokenizer.extract_skills_from_text(full_text)
+
+        # 2. Heuristic extraction of years of experience
+        exp_years = 2.0
+        exp_matches = re.findall(
+            r'(\d+(?:\.\d+)?)\s*(?:\+|plus)?\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp|hands-on)',
+            full_text,
+            re.IGNORECASE
+        )
+        if exp_matches:
+            try:
+                found_exp = float(exp_matches[0])
+                if 0.0 <= found_exp <= 30.0:
+                    exp_years = found_exp
+            except Exception:
+                pass
+
+        # 3. Match against jobs
+        analysis = self.analyze_candidate(
+            full_name=candidate_name,
+            years_experience=exp_years,
+            explicit_skills=extracted_skills,
+            resume_text=full_text,
+            jobs=jobs
+        )
+
+        summary_excerpt = full_text[:380].strip() + ("..." if len(full_text) > 380 else "")
+
+        return {
+            "page_count": len(reader.pages),
+            "extracted_skills": extracted_skills,
+            "years_experience": exp_years,
+            "summary_excerpt": summary_excerpt,
+            "total_skills_found": len(extracted_skills),
+            "top_matches": analysis["top_matches"]
+        }
+
+    def process_assistant_query(
+        self,
+        query: str,
+        current_skills: List[str],
+        years_exp: float,
+        jobs: List[JobModel],
+        candidate_name: str = "User"
+    ) -> Dict:
+        """
+        Processes AI Assistant queries with strict domain guardrails.
+        Rejects non-career queries (e.g., cooking, sports, casual chit-chat).
+        Provides intelligent job search, match scoring, compensation insights, and roadmap guidance.
+        """
+        import re
+
+        clean_q = query.strip()
+        lower_q = clean_q.lower()
+
+        # 1. STRICT GUARDRAIL ENFORCEMENT
+        off_topic_patterns = [
+            r'\b(?:biryani|pulao|nihari|recipe|cook|cooking|bake|baking|curry|pizza|burger|pasta|food|dish|dessert|ingredients)\b',
+            r'\b(?:cricket|football|soccer|psl|ipl|fifa|world cup|match score|weather|rain|temperature)\b',
+            r'\b(?:joke|riddle|funny|meme|song|sing|lyrics|movie|film|actor|actress|cinema|bollywood|hollywood)\b',
+            r'\b(?:politics|election|prime minister|president|parliament|horoscope|zodiac|astrology)\b'
+        ]
+
+        for pat in off_topic_patterns:
+            if re.search(pat, lower_q):
+                return {
+                    "reply": "⚠️ **Off-Topic Request Rejected**\n\nI am the **TalentPulse AI Career Assistant**. I specialize strictly in career diagnostics, tech job search, technical skill gaps, resume review, and Pakistani/global tech market intelligence.\n\nPlease ask a career, job, skill, or hiring-related question.",
+                    "is_error": True,
+                    "action_suggested": None,
+                    "suggested_jobs": []
+                }
+
+        # Check for career / technical / platform relevance
+        career_keywords = [
+            "job", "opening", "vacancy", "career", "hiring", "company", "companies", "role", "position",
+            "systems", "devsinc", "10pearls", "arbisoft", "venturedive", "motive", "daraz", "remote",
+            "skill", "skills", "experience", "resume", "cv", "pdf", "profile", "salary", "compensation", "pkr", "usd", "pay",
+            "match", "score", "suitability", "gap", "missing", "roadmap", "learn", "prepare", "interview",
+            "python", "pytorch", "deep learning", "machine learning", "ai", "llm", "rag", "langchain",
+            "docker", "fastapi", "sql", "transformers", "nlp", "computer vision", "opencv", "kubernetes",
+            "knowledge graph", "talentpulse", "hire", "apply"
+        ]
+
+        is_relevant = any(k in lower_q for k in career_keywords)
+        if not is_relevant and len(clean_q.split()) > 2:
+            return {
+                "reply": "⚠️ **Off-Topic Request**\n\nI can only assist with career development, matching analysis, job listings, and skill gaps on TalentPulse. Try asking:\n• *'Find Generative AI or RAG jobs'* \n• *'What is my match score with Python and Docker?'* \n• *'What are the highest paying tech jobs in Lahore?'*",
+                "is_error": True,
+                "action_suggested": "explore_jobs",
+                "suggested_jobs": []
+            }
+
+        # 2. INTENT: MATCH & SUITABILITY EVALUATION
+        if any(w in lower_q for w in ["match", "score", "suitability", "gap", "missing", "how do i qualify"]):
+            analysis = self.analyze_candidate(
+                full_name=candidate_name,
+                years_experience=years_exp,
+                explicit_skills=current_skills,
+                resume_text=" ".join(current_skills),
+                jobs=jobs
+            )
+            top = analysis["top_matches"][0] if analysis["top_matches"] else None
+            if top:
+                reply = (
+                    f"🎯 **Suitability Diagnostic for {candidate_name}**\n\n"
+                    f"• **Top Match:** {top['job_title']} at **{top['company']}** ({top['overall_match_score']}% fit)\n"
+                    f"• **Readiness Level:** {top['readiness_level']} (Latent Cosine Alignment: {top['cosine_similarity']})\n"
+                    f"• **Matched Competencies:** {', '.join(top['skill_gap']['matched_skills']) if top['skill_gap']['matched_skills'] else 'None'}\n"
+                    f"• **Priority Gaps:** {', '.join(top['skill_gap']['missing_required']) if top['skill_gap']['missing_required'] else 'All core prerequisites satisfied!'}\n\n"
+                    f"💡 *Actionable Recommendation:* {top['suggested_roadmap'][0] if top['suggested_roadmap'] else 'Profile well aligned.'}"
+                )
+                return {
+                    "reply": reply,
+                    "is_error": False,
+                    "action_suggested": "view_match",
+                    "suggested_jobs": [top]
+                }
+
+        # 3. INTENT: SALARY & COMPENSATION BENCHMARKS
+        if any(w in lower_q for w in ["salary", "compensation", "pay", "package", "rate"]):
+            reply = (
+                "💰 **TalentPulse Market Compensation Benchmarks (2026)**\n\n"
+                "• **Tier-1 Enterprise (Systems Limited, Motive):**\n"
+                "  PKR 450,000 – 850,000 / month for Senior Deep Learning & Telematics AI Engineers.\n\n"
+                "• **High-Growth Software Houses (Devsinc, Arbisoft, 10Pearls, VentureDive):**\n"
+                "  PKR 280,000 – 600,000 / month for Mid-to-Senior GenAI, NLP, MLOps, and Computer Vision Specialists.\n\n"
+                "• **US / Silicon Valley Remote Clients (CognitiveFlow):**\n"
+                "  $2,500 – $4,500 / month (~PKR 700,000 – 1,250,000) for Autonomous Full-Stack AI Engineers.\n\n"
+                "All listings feature direct application links to verified portals."
+            )
+            return {
+                "reply": reply,
+                "is_error": False,
+                "action_suggested": "view_jobs",
+                "suggested_jobs": []
+            }
+
+        # 4. INTENT: SPECIFIC JOB SEARCH
+        matched_jobs = []
+        for j in jobs:
+            searchable = f"{j.title} {j.company} {j.location} {' '.join(j.required_skills)}".lower()
+            # Check terms
+            words = [w for w in lower_q.split() if len(w) > 3 and w not in ["jobs", "find", "search", "show", "openings", "looking"]]
+            if any(w in searchable for w in words):
+                matched_jobs.append(j)
+
+        if not matched_jobs:
+            matched_jobs = jobs[:3]
+
+        suggested = []
+        reply_lines = [f"🔍 **Found {len(matched_jobs[:4])} relevant opportunities:**\n"]
+        for j in matched_jobs[:4]:
+            apply_url = getattr(j, "apply_url", None) or "https://www.google.com"
+            reply_lines.append(
+                f"• **{j.title}** at **{j.company}** ({j.location})\n"
+                f"  Experience: {j.experience_years} Yrs | Stack: {', '.join(j.required_skills[:4])}\n"
+                f"  Compensation: {j.salary_range} | [Apply Directly ↗]({apply_url})\n"
+            )
+            suggested.append(j.to_dict())
+
+        reply_lines.append("Would you like to evaluate your specific suitability score or upload your PDF CV for automated matching?")
+
+        return {
+            "reply": "\n".join(reply_lines),
+            "is_error": False,
+            "action_suggested": "view_jobs",
+            "suggested_jobs": suggested
+        }
+
+    def build_user_knowledge_graph(
+        self,
+        user_name: str,
+        skills: List[str],
+        years_experience: float,
+        jobs: List[JobModel]
+    ) -> Dict:
+        """
+        Builds a high-dimensional Knowledge Graph mapping:
+        - Candidate Node (User)
+        - Acquired Skills (Connected to User)
+        - Market Openings (Connected to User with suitability weights)
+        - Employer Companies (Connected to Job Openings)
+        - Skill Gaps / Required Tech (Connected to Jobs)
+        """
+        nodes = []
+        links = []
+        node_ids = set()
+
+        def add_node(n_id, label, n_type, group, val=10, meta=None):
+            if n_id not in node_ids:
+                nodes.append({
+                    "id": n_id,
+                    "label": label,
+                    "type": n_type,
+                    "group": group,
+                    "val": val,
+                    "meta": meta or {}
+                })
+                node_ids.add(n_id)
+
+        # 1. Central Candidate Node
+        user_id = "user-profile"
+        user_label = user_name or "Verified Candidate"
+        add_node(
+            user_id,
+            user_label,
+            "user",
+            "candidate",
+            val=24,
+            meta={"experience": f"{years_experience} Yrs", "skills_count": len(skills)}
+        )
+
+        # 2. Acquired User Skills
+        user_skill_set = set(skills)
+        for s in skills:
+            s_id = f"skill-{s.lower().replace(' ', '-')}"
+            add_node(s_id, s, "skill", "acquired_skill", val=13, meta={"status": "Possessed"})
+            links.append({
+                "source": user_id,
+                "target": s_id,
+                "type": "possesses",
+                "weight": 2.2,
+                "label": "Possesses"
+            })
+
+        # Run analysis to calculate real match affinity weights
+        analysis = self.analyze_candidate(
+            full_name=user_name,
+            years_experience=years_experience,
+            explicit_skills=skills,
+            resume_text=" ".join(skills),
+            jobs=jobs
+        )
+        score_map = {m["job_id"]: m for m in analysis["top_matches"]}
+
+        # 3. Market Openings & Companies
+        for j in jobs:
+            match_data = score_map.get(j.id, {})
+            score = match_data.get("overall_match_score", 50.0)
+            readiness = match_data.get("readiness_level", "Prospect")
+
+            job_node_id = f"job-{j.id}"
+            add_node(
+                job_node_id,
+                j.title,
+                "job",
+                "job_opening",
+                val=16,
+                meta={
+                    "company": j.company,
+                    "location": j.location,
+                    "salary": j.salary_range,
+                    "score": f"{score}%",
+                    "readiness": readiness,
+                    "apply_url": getattr(j, "apply_url", None)
+                }
+            )
+
+            # Link: User -> Job (Match Evaluation)
+            links.append({
+                "source": user_id,
+                "target": job_node_id,
+                "type": "evaluated",
+                "weight": round(score / 25.0, 1) or 1.0,
+                "label": f"{score}% Match"
+            })
+
+            # Company Node
+            comp_id = f"comp-{j.company.lower().replace(' ', '-')}"
+            add_node(
+                comp_id,
+                j.company,
+                "company",
+                "employer",
+                val=12,
+                meta={"location": j.location, "tier": j.tier}
+            )
+            # Link: Job -> Company
+            links.append({
+                "source": job_node_id,
+                "target": comp_id,
+                "type": "offers",
+                "weight": 1.5,
+                "label": "Offered By"
+            })
+
+            # Skills required by Job
+            for req in j.required_skills:
+                if req in user_skill_set:
+                    # User already possesses this requirement!
+                    s_id = f"skill-{req.lower().replace(' ', '-')}"
+                    links.append({
+                        "source": job_node_id,
+                        "target": s_id,
+                        "type": "requires",
+                        "weight": 1.3,
+                        "label": "Satisfied Requirement"
+                    })
+                else:
+                    # Missing requirement (Skill Gap)
+                    gap_id = f"gap-{req.lower().replace(' ', '-')}"
+                    add_node(gap_id, req, "gap", "missing_skill", val=10, meta={"status": "Skill Deficit", "needed_by": j.company})
+                    links.append({
+                        "source": job_node_id,
+                        "target": gap_id,
+                        "type": "gap",
+                        "weight": 1.0,
+                        "label": "Skill Deficit"
+                    })
+
+        high_fit_count = len([j for j in jobs if score_map.get(j.id, {}).get("overall_match_score", 0) >= 70])
+        summary = {
+            "total_nodes": len(nodes),
+            "total_entities": len(nodes),
+            "total_links": len(links),
+            "total_connections": len(links),
+            "candidate_skills_count": len(skills),
+            "acquired_skills": len(skills),
+            "jobs_evaluated": len(jobs),
+            "high_affinity_matches": high_fit_count,
+            "high_fit_hubs": high_fit_count
+        }
+
+        return {
+            "nodes": nodes,
+            "links": links,
+            "summary": summary
+        }
+
 
 # Global singleton instance
 matcher_service = CareerMatchingService()
+

@@ -5,7 +5,7 @@ candidate evaluations, and skill diagnostics.
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 
 # --- Authentication Schemas ---
@@ -31,20 +31,21 @@ class UserLoginRequest(BaseModel):
 
 
 class OAuthLoginRequest(BaseModel):
-    email: str
-    full_name: str
+    email: EmailStr
+    full_name: Optional[str] = "Verified User"
     provider_id: Optional[str] = None
+    password: Optional[str] = None
+    verification_code: Optional[str] = None
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     full_name: str
     auth_provider: str
     created_at: Optional[str]
-
-    class Config:
-        from_attributes = True
 
 
 class AuthResponse(BaseModel):
@@ -75,10 +76,8 @@ class JobCreate(JobBase):
 
 
 class JobResponse(JobBase):
+    model_config = ConfigDict(from_attributes=True)
     id: str
-
-    class Config:
-        from_attributes = True
 
 
 class CandidateAnalyzeRequest(BaseModel):
@@ -129,3 +128,57 @@ class ModelMetricsResponse(BaseModel):
     epochs_trained: int
     trained_at: str
     history: Dict[str, Any]
+
+
+# --- CV Upload & Skill Extraction Schema ---
+
+class CVUploadResponse(BaseModel):
+    filename: str
+    page_count: int
+    extracted_skills: List[str]
+    years_experience: float
+    summary_excerpt: str
+    total_skills_found: int
+    top_matches: List[MatchResultResponse]
+
+
+# --- AI Assistant Schemas with Guardrails ---
+
+class AssistantChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1200)
+    current_skills: Optional[List[str]] = []
+    years_experience: Optional[float] = 2.0
+    conversation_history: Optional[List[Dict[str, str]]] = []
+
+
+class AssistantChatResponse(BaseModel):
+    reply: str
+    is_error: bool = False
+    action_suggested: Optional[str] = None
+    suggested_jobs: Optional[List[Dict[str, Any]]] = None
+
+
+# --- Knowledge Graph Schemas ---
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    type: str  # "user", "skill", "job", "company", "gap"
+    group: str
+    val: float = 1.0
+    meta: Dict[str, Any] = {}
+
+
+class GraphLink(BaseModel):
+    source: str
+    target: str
+    type: str  # "possesses", "requires", "offers", "evaluated", "gap"
+    weight: float = 1.0
+    label: Optional[str] = None
+
+
+class KnowledgeGraphResponse(BaseModel):
+    nodes: List[GraphNode]
+    links: List[GraphLink]
+    summary: Dict[str, Any]
+

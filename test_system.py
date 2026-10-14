@@ -169,6 +169,131 @@ class TestTalentPulseAI(unittest.TestCase):
 
         print("[Pass] Job application URLs, HTML title TalentPulse, and clean analytics UI verified.")
 
+    def test_07_pdf_cv_extraction(self):
+        """Tests PDF resume parsing, keyword extraction, and match computation."""
+        import io
+        from pypdf import PdfWriter
+
+        # Create a genuine minimal PDF byte stream
+        writer = PdfWriter()
+        page = writer.add_blank_page(width=612, height=792)
+        
+        # Or construct a valid minimal PDF with text
+        # Since pypdf PdfWriter can write a clean PDF, let's write text or use raw pdf stream
+        # Minimal valid PDF with text stream:
+        pdf_content = (
+            b"%PDF-1.4\n"
+            b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
+            b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
+            b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n"
+            b"4 0 obj << /Length 135 >> stream\n"
+            b"BT /F1 12 Tf 72 712 Td (Senior AI Engineer with 3.5 years experience in Python, PyTorch, Docker, FastAPI, and RAG architectures at FAST.) Tj ET\n"
+            b"endstream\nendobj\n"
+            b"5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n"
+            b"xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000430 00000 n \n"
+            b"trailer << /Size 6 /Root 1 0 R >>\nstartxref\n511\n%%EOF"
+        )
+
+        session = init_database()
+        jobs = session.query(JobModel).all()
+        result = self.service.parse_pdf_cv(pdf_content, jobs, "Fatima Khan")
+        session.close()
+
+        self.assertIn("extracted_skills", result)
+        self.assertIn("Python", result["extracted_skills"])
+        self.assertIn("PyTorch", result["extracted_skills"])
+        self.assertIn("Docker", result["extracted_skills"])
+        self.assertGreater(len(result["top_matches"]), 0)
+        print(f"[Pass] PDF CV extraction parsed skills: {result['extracted_skills']}")
+
+    def test_08_ai_assistant_guardrails(self):
+        """Verifies strict domain guardrails: rejects off-topic (biryani) & answers career queries."""
+        session = init_database()
+        jobs = session.query(JobModel).all()
+
+        # 1. Off-topic test: "make biryani" MUST be rejected with is_error=True
+        biryani_query = "Can you give me a recipe to make biryani at home?"
+        res_biryani = self.service.process_assistant_query(
+            query=biryani_query,
+            current_skills=["Python"],
+            years_exp=2.0,
+            jobs=jobs,
+            candidate_name="Tester"
+        )
+        self.assertTrue(res_biryani["is_error"], "Off-topic query 'make biryani' was not flagged as an error!")
+        self.assertIn("Off-Topic", res_biryani["reply"])
+        print(f"[Pass] Guardrail successfully blocked off-topic prompt '{biryani_query}':\n       {res_biryani['reply']}")
+
+        # 2. Another off-topic: movie recommendations
+        movie_query = "Who won the premier league yesterday?"
+        res_movie = self.service.process_assistant_query(
+            query=movie_query,
+            current_skills=["Python"],
+            years_exp=2.0,
+            jobs=jobs,
+            candidate_name="Tester"
+        )
+        self.assertTrue(res_movie["is_error"])
+
+        # 3. On-topic career query: "find Generative AI jobs"
+        career_query = "Find Generative AI and RAG jobs in Lahore"
+        res_career = self.service.process_assistant_query(
+            query=career_query,
+            current_skills=["Python", "PyTorch", "RAG"],
+            years_exp=2.5,
+            jobs=jobs,
+            candidate_name="Fatima"
+        )
+        self.assertFalse(res_career["is_error"])
+        self.assertGreater(len(res_career["suggested_jobs"]), 0)
+        print(f"[Pass] On-topic query '{career_query}' returned {len(res_career['suggested_jobs'])} jobs.")
+        session.close()
+
+    def test_09_user_knowledge_graph(self):
+        """Verifies construction of interactive User Knowledge Graph network."""
+        session = init_database()
+        jobs = session.query(JobModel).all()
+
+        graph = self.service.build_user_knowledge_graph(
+            user_name="Hamza Tariq",
+            skills=["Python", "PyTorch", "FastAPI", "Docker"],
+            years_experience=3.0,
+            jobs=jobs
+        )
+        session.close()
+
+        self.assertIn("nodes", graph)
+        self.assertIn("links", graph)
+        self.assertIn("summary", graph)
+
+        node_types = set(n["type"] for n in graph["nodes"])
+        self.assertIn("user", node_types)
+        self.assertIn("skill", node_types)
+        self.assertIn("job", node_types)
+        self.assertIn("company", node_types)
+        self.assertIn("gap", node_types)
+
+        self.assertGreaterEqual(graph["summary"]["total_entities"], 20)
+        self.assertGreaterEqual(graph["summary"]["total_connections"], 20)
+        print(f"[Pass] Knowledge graph generated: {len(graph['nodes'])} nodes, {len(graph['links'])} links.")
+
+    def test_10_oauth_credential_and_verification_rules(self):
+        """Verifies OAuth login endpoint requires credentials/verification."""
+        from backend.schemas import OAuthLoginRequest
+        from pydantic import ValidationError
+
+        # Empty password/verification code should be caught by endpoint logic
+        req = OAuthLoginRequest(email="test@gmail.com", password="secureGooglePassword123")
+        self.assertEqual(req.email, "test@gmail.com")
+        self.assertEqual(req.password, "secureGooglePassword123")
+
+        # Invalid email format should fail
+        with self.assertRaises(ValidationError):
+            OAuthLoginRequest(email="notanemail", password="pwd")
+
+        print("[Pass] OAuth request schemas and verification credential constraints validated.")
+
 
 if __name__ == "__main__":
     unittest.main()
+

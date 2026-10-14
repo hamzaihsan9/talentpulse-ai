@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks, Header
+from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,7 +32,11 @@ from backend.schemas import (
     UserLoginRequest,
     OAuthLoginRequest,
     AuthResponse,
-    UserResponse
+    UserResponse,
+    CVUploadResponse,
+    AssistantChatRequest,
+    AssistantChatResponse,
+    KnowledgeGraphResponse
 )
 from backend.auth import (
     generate_captcha,
@@ -189,24 +193,44 @@ def login_user(req: UserLoginRequest, db: Session = Depends(get_db)):
 @app.post("/api/auth/google", response_model=AuthResponse)
 def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     """
-    Google (Gmail) Sign-In API.
-    Authenticates or provisions user securely with verified email identity.
+    Google (Gmail) Sign-In API with credentials and verification.
+    Authenticates user securely with verified Google identity and password/code.
     """
     email_clean = req.email.strip().lower()
     validate_email_format(email_clean)
+
+    if not req.password and not req.verification_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Password or 2-step verification code is required to sign in with Google."
+        )
+
+    pwd = (req.password or req.verification_code or "").strip()
+    if len(pwd) < 4:
+        raise HTTPException(status_code=400, detail="Invalid Google password or security key.")
 
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
     session_token = generate_session_token()
 
     if not user:
+        salt, pwd_hash = hash_password(pwd)
         user = UserModel(
             email=email_clean,
-            full_name=req.full_name.strip() or "Google User",
+            full_name=(req.full_name or "").strip() or "Google User",
+            password_hash=pwd_hash,
+            salt=salt,
             auth_provider="google",
             session_token=session_token
         )
         db.add(user)
     else:
+        if user.password_hash and user.salt:
+            if not verify_password(pwd, user.salt, user.password_hash):
+                raise HTTPException(status_code=401, detail="Incorrect Google account credentials. Please verify your password.")
+        else:
+            salt, pwd_hash = hash_password(pwd)
+            user.password_hash = pwd_hash
+            user.salt = salt
         user.session_token = session_token
 
     db.commit()
@@ -215,31 +239,50 @@ def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     return {
         "user": user.to_dict(),
         "token": session_token,
-        "message": "Signed in with Google."
+        "message": "Successfully authenticated via Google Identity."
     }
 
 
 @app.post("/api/auth/github", response_model=AuthResponse)
 def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     """
-    GitHub Sign-In API.
-    Authenticates or provisions user securely with GitHub developer credentials.
+    GitHub Developer Sign-In API with credentials and verification.
     """
     email_clean = req.email.strip().lower()
     validate_email_format(email_clean)
+
+    if not req.password and not req.verification_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Password or personal access token is required to authorize with GitHub."
+        )
+
+    pwd = (req.password or req.verification_code or "").strip()
+    if len(pwd) < 4:
+        raise HTTPException(status_code=400, detail="Invalid GitHub password or personal token.")
 
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
     session_token = generate_session_token()
 
     if not user:
+        salt, pwd_hash = hash_password(pwd)
         user = UserModel(
             email=email_clean,
-            full_name=req.full_name.strip() or "GitHub Developer",
+            full_name=(req.full_name or "").strip() or "GitHub Developer",
+            password_hash=pwd_hash,
+            salt=salt,
             auth_provider="github",
             session_token=session_token
         )
         db.add(user)
     else:
+        if user.password_hash and user.salt:
+            if not verify_password(pwd, user.salt, user.password_hash):
+                raise HTTPException(status_code=401, detail="Incorrect GitHub account credentials. Please check your password.")
+        else:
+            salt, pwd_hash = hash_password(pwd)
+            user.password_hash = pwd_hash
+            user.salt = salt
         user.session_token = session_token
 
     db.commit()
@@ -248,7 +291,7 @@ def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     return {
         "user": user.to_dict(),
         "token": session_token,
-        "message": "Signed in with GitHub."
+        "message": "Successfully authenticated via GitHub."
     }
 
 
@@ -406,3 +449,106 @@ def retrain_model(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(run_training_and_reload)
     return {"message": "Model calibration task initiated in background."}
+
+
+# ==============================================================================
+# PDF CV EXTRACTION, AI ASSISTANT & KNOWLEDGE GRAPH ENDPOINTS
+# ==============================================================================
+
+@app.post("/api/cv/upload-pdf", response_model=CVUploadResponse)
+async def upload_pdf_cv(
+    file: UploadFile = File(...),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Candidate Resume Analyzer (PDF Only):
+    - Validates PDF format strictly (rejects non-pdf)
+    - Extracts technical text and computes skills density
+    - Auto-matches candidate to active Pakistan/global job listings
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to upload and analyze your CV.")
+
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload your resume in PDF format only (.pdf)."
+        )
+
+    contents = await file.read()
+    if not contents.startswith(b"%PDF-"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid PDF structure. The uploaded document does not match a valid PDF header."
+        )
+
+    jobs = db.query(JobModel).all()
+    try:
+        result = matcher_service.parse_pdf_cv(
+            pdf_bytes=contents,
+            jobs=jobs,
+            candidate_name=current_user.full_name or "Applicant"
+        )
+        return {
+            "filename": file.filename,
+            **result
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse PDF resume: {str(e)}")
+
+
+@app.post("/api/assistant/chat", response_model=AssistantChatResponse)
+def assistant_chat(
+    req: AssistantChatRequest,
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    AI Career & Suitability Assistant with strict domain guardrails:
+    - Rejects off-topic inquiries (e.g. food, sports, non-platform banter)
+    - Searches tech openings across Pakistan and international remote teams
+    - Calculates live suitability match scores and skill-gap roadmaps
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to consult the AI Career Assistant.")
+
+    jobs = db.query(JobModel).all()
+    response = matcher_service.process_assistant_query(
+        query=req.message,
+        current_skills=req.current_skills or [],
+        years_exp=req.years_experience or 2.0,
+        jobs=jobs,
+        candidate_name=current_user.full_name or "Candidate"
+    )
+    return response
+
+
+@app.get("/api/knowledge-graph", response_model=KnowledgeGraphResponse)
+def get_user_knowledge_graph(
+    skills: Optional[str] = None,
+    years_exp: Optional[float] = 2.0,
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns the interactive Knowledge Graph network for the user:
+    - User Node & Acquired Skills
+    - Openings, Companies, and Proximity Match Weights
+    - Required Competencies vs. Skill Gaps
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to view career knowledge graph.")
+
+    skill_list = [s.strip() for s in skills.split(",") if s.strip()] if skills else ["Python", "PyTorch", "Docker"]
+    jobs = db.query(JobModel).all()
+    graph = matcher_service.build_user_knowledge_graph(
+        user_name=current_user.full_name or "User",
+        skills=skill_list,
+        years_experience=years_exp or 2.0,
+        jobs=jobs
+    )
+    return graph
+

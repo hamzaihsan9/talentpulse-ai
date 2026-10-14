@@ -1,0 +1,19 @@
+# Netlify Configuration for TalentPulse AI Frontend
+
+[build]
+  publish = "static"
+
+# Forward all /api/* requests to your Google Cloud Run backend API
+# (Replace with your actual Cloud Run URL after deploying Step 1)
+[[redirects]]
+  from = "/api/*"
+  to = "https://talentpulse-ai-backend-placeholder.a.run.app/api/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "Netlify"}
+
+# Single Page App routing fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

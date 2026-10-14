@@ -2,11 +2,26 @@
 
 > **A production-grade Deep Learning & Data Science platform built with PyTorch, FastAPI, SQLite, and an editorial Claude/Gemini-inspired interface.**
 
-[![Python](https://img.shields.io/badge/Python-3.13%2B-blue.svg)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.14%20CPU%2FCUDA-red.svg)](https://pytorch.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.143-teal.svg)](https://fastapi.tiangolo.com)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-talentpulse--ai--wci2.onrender.com-success?style=for-the-badge&logo=render)](https://talentpulse-ai-wci2.onrender.com/)
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.13-blue.svg)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B%20CPU%2FCUDA-red.svg)](https://pytorch.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal.svg)](https://fastapi.tiangolo.com)
 [![Database](https://img.shields.io/badge/Database-SQLite%20%7C%20SQLAlchemy-lightgrey.svg)](https://sqlite.org)
+[![Deployed on Render](https://img.shields.io/badge/Render-Online-46E3B7?logo=render&logoColor=black)](https://talentpulse-ai-wci2.onrender.com/)
 [![PyCharm](https://img.shields.io/badge/IDE-PyCharm%20Ready-green.svg)](https://jetbrains.com/pycharm/)
+
+---
+
+## 🌐 Live Cloud Deployment
+
+**TalentPulse AI is publicly hosted and running in production on Render:**
+
+🔗 **[https://talentpulse-ai-wci2.onrender.com/](https://talentpulse-ai-wci2.onrender.com/)**
+
+- **Live PyTorch Siamese Dual-Encoder** inference engine
+- **Interactive User-Specific Dynamic Knowledge Graph**
+- **AI Career Assistant** with domain guardrails
+- **Anti-Bot Captcha Security** and live Google/GitHub authentication
 
 ---
 

@@ -111,6 +111,7 @@ class CareerMatchingService:
                     "company": job.company,
                     "location": job.location,
                     "salary_range": job.salary_range,
+                    "apply_url": getattr(job, "apply_url", None) or f"https://www.google.com/search?q={job.company.replace(' ', '+')}+careers",
                     "overall_match_score": round(score_val, 1),
                     "cosine_similarity": round(cos_sim, 3),
                     "readiness_level": readiness,

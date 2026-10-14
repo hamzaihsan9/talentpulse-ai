@@ -139,6 +139,36 @@ class TestTalentPulseAI(unittest.TestCase):
 
         print("[Pass] Authentication security, PBKDF2 crypto, Captcha, and database isolation verified.")
 
+    def test_06_job_apply_urls_and_page_spec(self):
+        """Verifies that all jobs have valid apply URLs and HTML meets UI constraints."""
+        session = init_database()
+        jobs = session.query(JobModel).all()
+        for j in jobs:
+            self.assertTrue(j.apply_url and j.apply_url.startswith("http"), f"Job {j.company} missing apply_url")
+        
+        # Test analysis output includes apply_url
+        result = self.service.analyze_candidate(
+            full_name="Hamza Tariq",
+            years_experience=2.0,
+            explicit_skills=["Python", "PyTorch"],
+            resume_text="AI engineer with Python and PyTorch experience",
+            jobs=jobs
+        )
+        session.close()
+
+        for top in result["top_matches"]:
+            self.assertTrue(top.get("apply_url") and top["apply_url"].startswith("http"), f"Match {top['company']} missing apply_url")
+
+        # Verify index.html spec
+        index_html = (BASE_DIR / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("<title>TalentPulse</title>", index_html)
+        self.assertNotIn("TalentPulse--Semantic Care", index_html)
+        self.assertNotIn("code-snippet", index_html)
+        self.assertIn("auth-field-row", index_html)
+        self.assertIn("btn-apply", (BASE_DIR / "static" / "styles.css").read_text(encoding="utf-8"))
+
+        print("[Pass] Job application URLs, HTML title TalentPulse, and clean analytics UI verified.")
+
 
 if __name__ == "__main__":
     unittest.main()

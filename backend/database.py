@@ -59,6 +59,7 @@ class JobModel(Base):
     required_skills_json = Column(Text, default="[]")
     preferred_skills_json = Column(Text, default="[]")
     industry = Column(String(64), nullable=True)
+    apply_url = Column(String(256), nullable=True)
     embedding_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -94,6 +95,7 @@ class JobModel(Base):
             "required_skills": self.required_skills,
             "preferred_skills": self.preferred_skills,
             "industry": self.industry,
+            "apply_url": self.apply_url or f"https://www.google.com/search?q={self.company.replace(' ', '+')}+careers",
         }
 
 
@@ -169,30 +171,35 @@ class MatchHistoryModel(Base):
 
 
 def init_database() -> Session:
-    """Creates database schema and seeds initial market jobs if empty."""
+    """Creates database schema, migrates columns, and seeds/updates market jobs."""
     Base.metadata.create_all(bind=engine)
     
     # Auto-migrate columns if tables existed prior to auth isolation
     with engine.connect() as conn:
-        for table, col in [("candidates", "user_id"), ("match_history", "user_id")]:
+        for table, col, col_type in [
+            ("candidates", "user_id", "INTEGER REFERENCES users(id)"),
+            ("match_history", "user_id", "INTEGER REFERENCES users(id)"),
+            ("jobs", "apply_url", "VARCHAR(256)")
+        ]:
             try:
                 cols = [row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()]
                 if col not in cols:
-                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} INTEGER REFERENCES users(id)")
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
                     conn.commit()
             except Exception:
                 pass
 
     session = SessionLocal()
     
-    # Seed from raw_jobs.json if jobs table is empty
-    existing_count = session.query(JobModel).count()
-    if existing_count == 0:
-        raw_path = Path(__file__).resolve().parent.parent / "data" / "raw_jobs.json"
-        if raw_path.exists():
-            with open(raw_path, "r", encoding="utf-8") as f:
-                jobs_data = json.load(f)
-            for j in jobs_data:
+    # Seed or synchronize application URLs from raw_jobs.json
+    raw_path = Path(__file__).resolve().parent.parent / "data" / "raw_jobs.json"
+    if raw_path.exists():
+        with open(raw_path, "r", encoding="utf-8") as f:
+            jobs_data = json.load(f)
+        
+        for j in jobs_data:
+            job_rec = session.query(JobModel).filter(JobModel.id == j["id"]).first()
+            if not job_rec:
                 job_rec = JobModel(
                     id=j["id"],
                     title=j["title"],
@@ -203,13 +210,16 @@ def init_database() -> Session:
                     salary_range=j.get("salary_range"),
                     experience_years=float(j.get("experience_years", 2.0)),
                     description=j["description"],
-                    industry=j.get("industry")
+                    industry=j.get("industry"),
+                    apply_url=j.get("apply_url")
                 )
                 job_rec.required_skills = j.get("required_skills", [])
                 job_rec.preferred_skills = j.get("preferred_skills", [])
                 session.add(job_rec)
-            session.commit()
-            print(f"[Database] Seeded {len(jobs_data)} job postings into SQLite.")
+            else:
+                if j.get("apply_url") and not job_rec.apply_url:
+                    job_rec.apply_url = j.get("apply_url")
+        session.commit()
 
     return session
 

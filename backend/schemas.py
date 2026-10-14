@@ -67,6 +67,7 @@ class JobBase(BaseModel):
     required_skills: List[str] = []
     preferred_skills: List[str] = []
     industry: Optional[str] = None
+    apply_url: Optional[str] = None
 
 
 class JobCreate(JobBase):
@@ -103,6 +104,7 @@ class MatchResultResponse(BaseModel):
     company: str
     location: str
     salary_range: Optional[str]
+    apply_url: Optional[str] = None
     overall_match_score: float
     cosine_similarity: float
     readiness_level: str

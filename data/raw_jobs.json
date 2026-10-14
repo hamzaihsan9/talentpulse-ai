@@ -8,10 +8,11 @@
     "level": "Senior",
     "salary_range": "PKR 450,000 - 650,000 / mo",
     "experience_years": 4,
-    "description": "We are looking for a Senior AI Engineer to spearhead our enterprise machine learning initiatives. You will design, train, and deploy custom PyTorch deep learning models, optimize transformer architectures for low-latency inference, and work closely with cloud data pipelines on AWS and Azure. Candidates should possess robust mathematical intuition in gradient descent, regularization, and loss function formulation, along with strong production software engineering skills.",
+    "description": "We are looking for a Senior AI Engineer to spearhead our enterprise machine learning initiatives. You will design, train, and deploy custom deep learning models, optimize transformer architectures for low-latency inference, and work closely with cloud data pipelines on AWS and Azure. Candidates should possess robust mathematical intuition in gradient descent, regularization, and loss function formulation, along with strong production software engineering skills.",
     "required_skills": ["Python", "PyTorch", "Deep Learning", "Transformers", "Model Serving", "Docker", "SQL"],
     "preferred_skills": ["MLflow", "AWS SageMaker", "FastAPI", "ONNX", "Kubernetes"],
-    "industry": "Enterprise Solutions & Digital Transformation"
+    "industry": "Enterprise Solutions & Digital Transformation",
+    "apply_url": "https://www.systemsltd.com/careers"
   },
   {
     "id": "job-dev-002",
@@ -22,10 +23,11 @@
     "level": "Mid-Level",
     "salary_range": "PKR 300,000 - 450,000 / mo",
     "experience_years": 2,
-    "description": "Seeking an AI Engineer with proven expertise in building Retrieval-Augmented Generation (RAG) systems and fine-tuning open-source LLMs (Llama, Mistral, Qwen). You will develop semantic vector search pipelines, integrate LangChain/LlamaIndex frameworks, and build robust FastAPI microservices integrated with relational and vector databases.",
+    "description": "Seeking an AI Engineer with proven expertise in building Retrieval-Augmented Generation (RAG) systems and fine-tuning open-source LLMs (Llama, Mistral, Qwen). You will develop semantic vector search pipelines, integrate LangChain/LlamaIndex frameworks, and build robust microservices integrated with relational and vector databases.",
     "required_skills": ["Python", "PyTorch", "LLMs", "RAG", "LangChain", "Vector Databases", "FastAPI"],
     "preferred_skills": ["LoRA", "PEFT", "PostgreSQL", "Docker", "Prompt Engineering"],
-    "industry": "Generative AI Products"
+    "industry": "Generative AI Products",
+    "apply_url": "https://www.devsinc.com/careers"
   },
   {
     "id": "job-10p-003",
@@ -36,10 +38,11 @@
     "level": "Mid-to-Senior",
     "salary_range": "PKR 350,000 - 550,000 / mo",
     "experience_years": 3,
-    "description": "10Pearls is hiring an AI specialist with a strong computer vision background. The role entails developing object detection, segmentation, and video analytics pipelines using PyTorch, OpenCV, and YOLO. You will convert and optimize models for edge devices and cloud endpoints using ONNX and TensorRT.",
+    "description": "10Pearls is hiring an AI specialist with a strong computer vision background. The role entails developing object detection, segmentation, and video analytics pipelines using OpenCV and modern architectures. You will convert and optimize models for edge devices and cloud endpoints using ONNX and TensorRT.",
     "required_skills": ["Python", "PyTorch", "OpenCV", "YOLO", "CNN", "Docker"],
     "preferred_skills": ["TensorRT", "C++", "FastAPI", "MediaPipe", "GCP Vertex AI"],
-    "industry": "Healthcare & Smart City IoT"
+    "industry": "Healthcare & Smart City IoT",
+    "apply_url": "https://10pearls.com/careers/"
   },
   {
     "id": "job-arb-004",
@@ -50,10 +53,11 @@
     "level": "Mid-Level",
     "salary_range": "PKR 280,000 - 420,000 / mo",
     "experience_years": 2,
-    "description": "Arbisoft is looking for an analytical ML Engineer to develop natural language understanding models, entity resolution engines, and dual-encoder ranking systems. Strong hands-on proficiency in Scikit-Learn, PyTorch, embedding architectures, and SQL is required. Experience with data preprocessing, EDA, and statistical significance testing is essential.",
+    "description": "Arbisoft is looking for an analytical ML Engineer to develop natural language understanding models, entity resolution engines, and continuous ranking systems. Strong hands-on proficiency in Scikit-Learn, embedding architectures, and SQL is required. Experience with data preprocessing, EDA, and statistical significance testing is essential.",
     "required_skills": ["Python", "PyTorch", "BERT", "Scikit-Learn", "SQL", "Data Preprocessing", "Embeddings"],
     "preferred_skills": ["FastAPI", "Pandas", "Cross Validation", "Git", "MLflow"],
-    "industry": "EdTech & Travel Platforms"
+    "industry": "EdTech & Travel Platforms",
+    "apply_url": "https://arbisoft.com/careers/"
   },
   {
     "id": "job-vd-005",
@@ -67,7 +71,8 @@
     "description": "Lead the operationalization of machine learning lifecycles at VentureDive. Build CI/CD automation pipelines for continuous model training, experiment tracking with MLflow, automated drift detection, and scalable containerized deployments on Kubernetes.",
     "required_skills": ["Python", "Docker", "Kubernetes", "MLflow", "CI/CD", "Model Serving", "SQL"],
     "preferred_skills": ["PyTorch", "FastAPI", "AWS SageMaker", "Triton", "Airflow"],
-    "industry": "FinTech & Mobility"
+    "industry": "FinTech & Mobility",
+    "apply_url": "https://www.venturedive.com/careers/"
   },
   {
     "id": "job-rem-006",
@@ -78,10 +83,11 @@
     "level": "Mid-to-Senior",
     "salary_range": "$2,500 - $4,500 / mo (~PKR 700,000 - 1,250,000)",
     "experience_years": 3,
-    "description": "Seeking an autonomous AI Engineer to bridge deep learning models and user-facing production applications. You must be comfortable writing PyTorch inference routines, designing clean asynchronous REST APIs with FastAPI, structuring relational databases (SQLite/PostgreSQL), and integrating interactive frontends.",
+    "description": "Seeking an autonomous AI Engineer to bridge intelligence models and user-facing production applications. You must be comfortable writing inference routines, designing clean asynchronous REST APIs with FastAPI, structuring relational databases (SQLite/PostgreSQL), and integrating interactive frontends.",
     "required_skills": ["Python", "PyTorch", "FastAPI", "SQL", "REST APIs", "Docker", "LLMs"],
     "preferred_skills": ["Prompt Engineering", "Frontend Development", "CI/CD", "AsyncIO"],
-    "industry": "SaaS & AI Productivity"
+    "industry": "SaaS & AI Productivity",
+    "apply_url": "https://wellfound.com/jobs"
   },
   {
     "id": "job-mot-007",
@@ -92,10 +98,11 @@
     "level": "Senior",
     "salary_range": "PKR 550,000 - 850,000 / mo",
     "experience_years": 4,
-    "description": "Develop and deploy deep neural networks for real-time safety and driver behavior analytics. You will work with spatio-temporal sensor data and vision streams, designing custom loss functions, training Siamese networks, and benchmarking against real-world fleets.",
+    "description": "Develop and deploy deep neural networks for real-time safety and driver behavior analytics. You will work with spatio-temporal sensor data and vision streams, designing custom loss functions, training semantic suitability models, and benchmarking against real-world fleets.",
     "required_skills": ["Python", "PyTorch", "Deep Learning", "Neural Networks", "Data Preprocessing", "Git"],
     "preferred_skills": ["C++", "CUDA", "OpenCV", "Model Evaluation", "Docker"],
-    "industry": "Fleet IoT & Safety"
+    "industry": "Fleet IoT & Safety",
+    "apply_url": "https://gomotive.com/company/careers/"
   },
   {
     "id": "job-dar-008",
@@ -109,6 +116,7 @@
     "description": "Join Daraz's core algorithm team to enhance personalization and search ranking. You will build collaborative filtering and two-tower neural recommendation models, evaluate A/B testing metrics, and query large-scale behavioral data with SQL.",
     "required_skills": ["Python", "SQL", "Scikit-Learn", "PyTorch", "Pandas", "Feature Engineering"],
     "preferred_skills": ["Gradient Boosting", "XGBoost", "Embeddings", "Cross Validation"],
-    "industry": "E-Commerce & Retail"
+    "industry": "E-Commerce & Retail",
+    "apply_url": "https://careers.daraz.com/"
   }
 ]

@@ -543,6 +543,7 @@ document.addEventListener("DOMContentLoaded", () => {
         opt.textContent = `${job.title} — ${job.company} (${job.location})`;
         jobSelect.appendChild(opt);
 
+        const applyHref = job.apply_url || `https://www.google.com/search?q=${encodeURIComponent(job.company + ' careers')}`;
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>
@@ -562,9 +563,19 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </td>
           <td>
-            <button type="button" class="btn-secondary select-job-btn" data-job-id="${job.id}" style="padding: 4px 10px; font-size: 12px;">
-              Target Opening
-            </button>
+            <div class="table-actions-cell">
+              <a href="${applyHref}" target="_blank" rel="noopener noreferrer" class="btn-apply btn-apply-sm" title="Open ${job.company} career portal">
+                <span>Apply</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+              <button type="button" class="btn-secondary select-job-btn" data-job-id="${job.id}" style="padding: 4px 9px; font-size: 11.5px;" title="Select for match analysis">
+                Match
+              </button>
+            </div>
           </td>
         `;
         jobsTableBody.appendChild(tr);
@@ -664,13 +675,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const score = item.overall_match_score;
       const scoreClass = score >= 75 ? "high" : (score >= 50 ? "medium" : "low");
       const readinessClass = score >= 75 ? "high" : (score >= 50 ? "medium" : "low");
+      const applyHref = item.apply_url || `https://www.google.com/search?q=${encodeURIComponent(item.company + ' careers')}`;
 
       const card = document.createElement("div");
       card.className = "result-card";
       card.innerHTML = `
         <div class="result-top-bar">
           <div class="job-title-group">
-            <h2>${item.job_title}</h2>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <h2>${item.job_title}</h2>
+              <a href="${applyHref}" target="_blank" rel="noopener noreferrer" class="btn-apply btn-apply-sm" title="Open ${item.company} careers portal">
+                <span>Apply</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+            </div>
             <div class="company-meta">
               <span><strong>${item.company}</strong></span>
               <span>•</span>
@@ -714,6 +736,18 @@ document.addEventListener("DOMContentLoaded", () => {
           <ul class="roadmap-list">
             ${item.suggested_roadmap.map(step => `<li>${step}</li>`).join('')}
           </ul>
+        </div>
+
+        <div class="result-actions-bar">
+          <a href="${applyHref}" target="_blank" rel="noopener noreferrer" class="btn-apply btn-apply-lg">
+            <span>Apply on ${item.company} Career Portal</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+          <span class="apply-direct-hint">Opens verified corporate career portal in a new tab</span>
         </div>
       `;
       matchResultsList.appendChild(card);

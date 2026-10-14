@@ -369,13 +369,16 @@ class CareerMatchingService:
         user_name: str,
         skills: List[str],
         years_experience: float,
-        jobs: List[JobModel]
+        jobs: List[JobModel],
+        user_id_val: Optional[int] = None,
+        user_email: Optional[str] = None,
+        all_jobs_count: Optional[int] = None
     ) -> Dict:
         """
-        Builds a high-dimensional Knowledge Graph mapping:
-        - Candidate Node (User)
+        Builds a high-dimensional, user-specific Knowledge Graph mapping:
+        - Candidate Node (User Identity)
         - Acquired Skills (Connected to User)
-        - Market Openings (Connected to User with suitability weights)
+        - Seen & Targeted Market Openings (Connected to User with suitability weights)
         - Employer Companies (Connected to Job Openings)
         - Skill Gaps / Required Tech (Connected to Jobs)
         """
@@ -395,8 +398,8 @@ class CareerMatchingService:
                 })
                 node_ids.add(n_id)
 
-        # 1. Central Candidate Node
-        user_id = "user-profile"
+        # 1. Central Candidate Node (User Specific)
+        user_id = f"user-{user_id_val}" if user_id_val else "user-profile"
         user_label = user_name or "Verified Candidate"
         add_node(
             user_id,
@@ -404,7 +407,13 @@ class CareerMatchingService:
             "user",
             "candidate",
             val=24,
-            meta={"experience": f"{years_experience} Yrs", "skills_count": len(skills)}
+            meta={
+                "user_id": user_id_val,
+                "email": user_email or "",
+                "experience": f"{years_experience} Yrs",
+                "skills_count": len(skills),
+                "jobs_seen": len(jobs)
+            }
         )
 
         # 2. Acquired User Skills
@@ -514,8 +523,12 @@ class CareerMatchingService:
             "candidate_skills_count": len(skills),
             "acquired_skills": len(skills),
             "jobs_evaluated": len(jobs),
+            "jobs_seen": len(jobs),
+            "total_market_jobs": all_jobs_count if all_jobs_count is not None else len(jobs),
             "high_affinity_matches": high_fit_count,
-            "high_fit_hubs": high_fit_count
+            "high_fit_hubs": high_fit_count,
+            "user_name": user_name,
+            "user_email": user_email or ""
         }
 
         return {

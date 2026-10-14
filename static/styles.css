@@ -114,6 +114,8 @@ body.authenticated #auth-portal-screen {
   max-width: 380px;
   box-shadow: 0 16px 40px -10px rgba(10, 30, 20, 0.18), 0 0 25px rgba(13, 115, 75, 0.06);
   padding: 16px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
   animation: portalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -329,7 +331,10 @@ body.authenticated #auth-portal-screen {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 2px 0;
+  margin: 3px 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .captcha-challenge-left {
@@ -337,6 +342,8 @@ body.authenticated #auth-portal-screen {
   align-items: center;
   gap: 6px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .captcha-badge {
@@ -348,6 +355,8 @@ body.authenticated #auth-portal-screen {
   background-color: var(--accent-green-light);
   padding: 2px 5px;
   border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .captcha-text {
@@ -356,6 +365,8 @@ body.authenticated #auth-portal-screen {
   font-weight: 700;
   color: var(--text-main);
   letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-refresh-captcha {
@@ -368,6 +379,7 @@ body.authenticated #auth-portal-screen {
   border-radius: 3px;
   transition: all 0.15s ease;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .btn-refresh-captcha:hover {
@@ -375,16 +387,33 @@ body.authenticated #auth-portal-screen {
   transform: rotate(45deg);
 }
 
-.captcha-input-inline {
-  width: 72px;
+.captcha-input-inline,
+input.captcha-input-inline,
+.captcha-box-inline input.captcha-input-inline {
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
   text-align: center;
-  padding: 4px 6px;
-  font-size: 12.5px;
-  height: 28px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  flex-shrink: 0;
+  padding: 4px 6px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  height: 28px !important;
+  line-height: 20px !important;
+  background-color: #FFFFFF !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 4px !important;
+  color: var(--text-main) !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.captcha-input-inline:focus,
+input.captcha-input-inline:focus,
+.captcha-box-inline input.captcha-input-inline:focus {
+  border-color: var(--accent-green) !important;
+  box-shadow: 0 0 0 2px rgba(13, 115, 75, 0.15) !important;
 }
 
 .auth-policy-note {
@@ -1524,9 +1553,22 @@ body.authenticated #auth-portal-screen {
    ============================================================================== */
 .graph-metrics-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.btn-scope-toggle {
+  background-color: var(--accent-green-light) !important;
+  color: var(--accent-green-dark) !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(13, 115, 75, 0.25) !important;
+}
+
+.btn-scope-toggle.all-active {
+  background-color: #EEF2FF !important;
+  color: #4F46E5 !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
 }
 
 .graph-kpi-item {

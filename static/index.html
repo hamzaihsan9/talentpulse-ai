@@ -81,7 +81,7 @@
             <span class="captcha-text" id="login-captcha-question">...</span>
             <button type="button" class="btn-refresh-captcha" id="refresh-login-captcha-btn" title="Refresh challenge">↻</button>
           </div>
-          <input type="text" id="login-captcha-answer" class="text-input captcha-input-inline" placeholder="Answer" required>
+          <input type="text" id="login-captcha-answer" class="captcha-input-inline" placeholder="Answer" required autocomplete="off">
         </div>
         <button type="submit" class="btn-primary auth-submit-btn" id="login-submit-btn">Continue to TalentPulse →</button>
         <p class="auth-switch-text">
@@ -118,7 +118,7 @@
             <span class="captcha-text" id="reg-captcha-question">...</span>
             <button type="button" class="btn-refresh-captcha" id="refresh-reg-captcha-btn" title="Refresh challenge">↻</button>
           </div>
-          <input type="text" id="reg-captcha-answer" class="text-input captcha-input-inline" placeholder="Answer" required>
+          <input type="text" id="reg-captcha-answer" class="captcha-input-inline" placeholder="Answer" required autocomplete="off">
         </div>
         <button type="submit" class="btn-primary auth-submit-btn" id="reg-submit-btn">Continue & Create Account →</button>
         <p class="auth-switch-text">
@@ -440,7 +440,7 @@
           <p>Interactive semantic network mapping your competencies, target openings, hiring organizations, and critical skill-gap deficits.</p>
         </div>
 
-        <!-- Summary KPI Bar -->
+        <!-- Summary KPI Bar (User-Specific) -->
         <div class="graph-metrics-bar">
           <div class="graph-kpi-item">
             <span class="graph-kpi-num" id="graph-node-count">0</span>
@@ -452,7 +452,11 @@
           </div>
           <div class="graph-kpi-item">
             <span class="graph-kpi-num" id="graph-skills-count">0</span>
-            <span class="graph-kpi-label">Acquired Skills</span>
+            <span class="graph-kpi-label">My Skills</span>
+          </div>
+          <div class="graph-kpi-item">
+            <span class="graph-kpi-num" id="graph-jobs-seen-count">0</span>
+            <span class="graph-kpi-label">Jobs Seen</span>
           </div>
           <div class="graph-kpi-item">
             <span class="graph-kpi-num" id="graph-high-match-count">0</span>
@@ -464,10 +468,11 @@
         <div class="graph-canvas-card">
           <div class="graph-toolbar">
             <div class="graph-filter-group">
-              <button type="button" class="graph-filter-btn active" data-filter="all">All Entities</button>
+              <button type="button" class="graph-filter-btn active" data-filter="all">All Network</button>
               <button type="button" class="graph-filter-btn" data-filter="skills">My Skills</button>
-              <button type="button" class="graph-filter-btn" data-filter="jobs">Target Jobs</button>
+              <button type="button" class="graph-filter-btn" data-filter="jobs">Seen Jobs</button>
               <button type="button" class="graph-filter-btn" data-filter="gaps">Skill Deficits</button>
+              <button type="button" class="graph-filter-btn btn-scope-toggle" id="graph-scope-toggle-btn" title="Toggle between your viewed jobs and all market jobs">⚡ Seen Only</button>
             </div>
             <div class="graph-search-wrap">
               <input type="text" id="graph-search-input" class="text-input graph-search-input" placeholder="Search node in graph...">

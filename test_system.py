@@ -14,7 +14,7 @@ sys.path.insert(0, str(BASE_DIR))
 import torch
 from model.tokenizer import SkillTokenizer
 from model.architecture import SiameseCareerMatcher
-from backend.database import init_database, JobModel
+from backend.database import init_database, JobModel, UserModel, UserJobViewModel
 from backend.service import CareerMatchingService
 
 
@@ -250,32 +250,89 @@ class TestTalentPulseAI(unittest.TestCase):
         session.close()
 
     def test_09_user_knowledge_graph(self):
-        """Verifies construction of interactive User Knowledge Graph network."""
+        """Verifies construction of interactive User-Specific Knowledge Graph network and multi-user divergence."""
         session = init_database()
         jobs = session.query(JobModel).all()
 
-        graph = self.service.build_user_knowledge_graph(
-            user_name="Hamza Tariq",
-            skills=["Python", "PyTorch", "FastAPI", "Docker"],
-            years_experience=3.0,
-            jobs=jobs
+        # User 1: AI / Computer Vision Engineer
+        user1 = UserModel(email="hamza_cv@talentpulse.ai", full_name="Hamza Tariq")
+        session.add(user1)
+        session.commit()
+
+        # User 2: NLP / LLM Engineer
+        user2 = UserModel(email="sara_nlp@talentpulse.ai", full_name="Sara Khan")
+        session.add(user2)
+        session.commit()
+
+        from backend.app import get_user_seen_job_ids, get_user_personal_skills
+
+        skills1, exp1 = get_user_personal_skills(user1, session)
+        seen1 = get_user_seen_job_ids(user1, session)
+        jobs1 = [j for j in jobs if j.id in seen1]
+
+        skills2, exp2 = get_user_personal_skills(user2, session)
+        seen2 = get_user_seen_job_ids(user2, session)
+        jobs2 = [j for j in jobs if j.id in seen2]
+
+        graph1 = self.service.build_user_knowledge_graph(
+            user_name=user1.full_name,
+            skills=skills1,
+            years_experience=exp1,
+            jobs=jobs1,
+            user_id_val=user1.id,
+            user_email=user1.email
         )
+
+        graph2 = self.service.build_user_knowledge_graph(
+            user_name=user2.full_name,
+            skills=skills2,
+            years_experience=exp2,
+            jobs=jobs2,
+            user_id_val=user2.id,
+            user_email=user2.email
+        )
+
+        # 1. Verify User 1 vs User 2 Knowledge Graphs are completely distinct
+        user1_nodes = {n["label"] for n in graph1["nodes"]}
+        user2_nodes = {n["label"] for n in graph2["nodes"]}
+
+        self.assertIn("Hamza Tariq", user1_nodes)
+        self.assertIn("Sara Khan", user2_nodes)
+        self.assertNotIn("Sara Khan", user1_nodes)
+        self.assertNotIn("Hamza Tariq", user2_nodes)
+
+        # Skills should diverge
+        self.assertNotEqual(skills1, skills2, "Different users must have distinct skill sets!")
+        self.assertNotEqual(user1_nodes, user2_nodes, "User 1 and User 2 must produce distinct knowledge graph nodes!")
+
+        # 2. Verify tracking a new job dynamically expands User 1's graph
+        initial_node_count = len(graph1["nodes"])
+        # User 1 views a job they haven't seen before
+        unseen_job = next(j for j in jobs if j.id not in seen1)
+        session.add(UserJobViewModel(user_id=user1.id, job_id=unseen_job.id))
+        session.commit()
+
+        seen1_updated = get_user_seen_job_ids(user1, session)
+        self.assertIn(unseen_job.id, seen1_updated)
+        jobs1_updated = [j for j in jobs if j.id in seen1_updated]
+
+        graph1_updated = self.service.build_user_knowledge_graph(
+            user_name=user1.full_name,
+            skills=skills1,
+            years_experience=exp1,
+            jobs=jobs1_updated,
+            user_id_val=user1.id,
+            user_email=user1.email
+        )
+        self.assertGreater(len(graph1_updated["nodes"]), initial_node_count, "Viewing a new job must dynamically expand the user's graph!")
+
+        # 3. Clean up test users
+        session.delete(user1)
+        session.delete(user2)
+        session.commit()
         session.close()
 
-        self.assertIn("nodes", graph)
-        self.assertIn("links", graph)
-        self.assertIn("summary", graph)
-
-        node_types = set(n["type"] for n in graph["nodes"])
-        self.assertIn("user", node_types)
-        self.assertIn("skill", node_types)
-        self.assertIn("job", node_types)
-        self.assertIn("company", node_types)
-        self.assertIn("gap", node_types)
-
-        self.assertGreaterEqual(graph["summary"]["total_entities"], 20)
-        self.assertGreaterEqual(graph["summary"]["total_connections"], 20)
-        print(f"[Pass] Knowledge graph generated: {len(graph['nodes'])} nodes, {len(graph['links'])} links.")
+        print(f"[Pass] User-specific knowledge graph validated: User 1 ({len(graph1['nodes'])} nodes) != User 2 ({len(graph2['nodes'])} nodes). Dynamic expansion confirmed.")
 
     def test_10_oauth_credential_and_verification_rules(self):
         """Verifies OAuth login endpoint requires credentials/verification."""

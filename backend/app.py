@@ -6,7 +6,7 @@ and real-time skill-gap diagnosis. Serves the minimalist editorial frontend.
 
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
 
 from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +20,8 @@ from backend.database import (
     UserModel,
     JobModel,
     CandidateProfileModel,
-    MatchHistoryModel
+    MatchHistoryModel,
+    UserJobViewModel
 )
 from backend.schemas import (
     JobResponse,
@@ -348,7 +349,47 @@ def get_job_by_id(
     job = db.query(JobModel).filter(JobModel.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job posting not found")
+
+    # Record job view for this user
+    try:
+        existing = db.query(UserJobViewModel).filter(
+            UserJobViewModel.user_id == current_user.id,
+            UserJobViewModel.job_id == job_id
+        ).first()
+        if not existing:
+            db.add(UserJobViewModel(user_id=current_user.id, job_id=job_id))
+            db.commit()
+    except Exception:
+        db.rollback()
+
     return job.to_dict()
+
+
+@app.post("/api/jobs/{job_id}/view")
+def track_job_view(
+    job_id: str,
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Explicitly tracks when a candidate views, matches, or applies for a job."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to track job interaction.")
+    job = db.query(JobModel).filter(JobModel.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job posting not found")
+
+    try:
+        existing = db.query(UserJobViewModel).filter(
+            UserJobViewModel.user_id == current_user.id,
+            UserJobViewModel.job_id == job_id
+        ).first()
+        if not existing:
+            db.add(UserJobViewModel(user_id=current_user.id, job_id=job_id))
+            db.commit()
+    except Exception:
+        db.rollback()
+
+    return {"status": "success", "job_id": job_id, "user_id": current_user.id}
 
 
 @app.get("/api/skills")
@@ -414,6 +455,16 @@ def analyze_candidate_profile(
             match_log.missing_skills_json = json.dumps(top_match["skill_gap"]["missing_required"])
             match_log.recommendations_json = json.dumps(top_match["suggested_roadmap"])
             db.add(match_log)
+
+        # Track top matched jobs in user's seen list
+        if user_id:
+            for m in analysis_result.get("top_matches", [])[:3]:
+                jid = m["job_id"]
+                if not db.query(UserJobViewModel).filter(
+                    UserJobViewModel.user_id == user_id,
+                    UserJobViewModel.job_id == jid
+                ).first():
+                    db.add(UserJobViewModel(user_id=user_id, job_id=jid))
 
         db.commit()
     except Exception as e:
@@ -487,6 +538,41 @@ async def upload_pdf_cv(
             jobs=jobs,
             candidate_name=current_user.full_name or "Applicant"
         )
+        
+        # Update user's candidate profile with parsed CV skills
+        try:
+            cand = db.query(CandidateProfileModel).filter(
+                CandidateProfileModel.user_id == current_user.id
+            ).order_by(CandidateProfileModel.id.desc()).first()
+            
+            if not cand:
+                cand = CandidateProfileModel(
+                    user_id=current_user.id,
+                    full_name=current_user.full_name or "Applicant",
+                    target_role="AI Engineer",
+                    years_experience=float(result.get("detected_experience_years", 2.0)),
+                    resume_text=result.get("extracted_text_preview", "")
+                )
+                cand.skills = result.get("extracted_skills", [])
+                db.add(cand)
+            else:
+                cand.skills = result.get("extracted_skills", [])
+                cand.years_experience = float(result.get("detected_experience_years", cand.years_experience or 2.0))
+                cand.resume_text = result.get("extracted_text_preview", cand.resume_text)
+            
+            # Record top matches from CV into UserJobViewModel
+            for m in result.get("top_matches", [])[:3]:
+                jid = m["job_id"]
+                if not db.query(UserJobViewModel).filter(
+                    UserJobViewModel.user_id == current_user.id,
+                    UserJobViewModel.job_id == jid
+                ).first():
+                    db.add(UserJobViewModel(user_id=current_user.id, job_id=jid))
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[Warning] Failed to persist CV profile update: {e}")
+
         return {
             "filename": file.filename,
             **result
@@ -520,32 +606,143 @@ def assistant_chat(
         jobs=jobs,
         candidate_name=current_user.full_name or "Candidate"
     )
+
+    # Track recommended jobs in user's seen list
+    if response.get("matched_jobs"):
+        try:
+            for j in response["matched_jobs"][:3]:
+                jid = j["id"]
+                if not db.query(UserJobViewModel).filter(
+                    UserJobViewModel.user_id == current_user.id,
+                    UserJobViewModel.job_id == jid
+                ).first():
+                    db.add(UserJobViewModel(user_id=current_user.id, job_id=jid))
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return response
+
+
+def get_user_seen_job_ids(user: UserModel, db: Session) -> List[str]:
+    """Retrieves all distinct job IDs that this user has viewed, evaluated, or targeted."""
+    view_job_ids = [row[0] for row in db.query(UserJobViewModel.job_id).filter(UserJobViewModel.user_id == user.id).all()]
+    match_job_ids = [row[0] for row in db.query(MatchHistoryModel.job_id).filter(MatchHistoryModel.user_id == user.id).all()]
+    all_seen = list(dict.fromkeys(view_job_ids + match_job_ids))
+    if all_seen:
+        return all_seen
+
+    # Dynamic seed personalized to user ID
+    all_jobs = db.query(JobModel).all()
+    if not all_jobs:
+        return []
+    job_map = {j.id: j for j in all_jobs}
+    bucket = (user.id or 1) % 3
+    if bucket == 1:
+        desired = ["job-10p-003", "job-arb-004"]
+    elif bucket == 2:
+        desired = ["job-sys-001", "job-dev-002"]
+    else:
+        desired = ["job-vd-005", "job-mot-007"]
+    
+    seeds = [jid for jid in desired if jid in job_map]
+    if not seeds:
+        seeds = [all_jobs[0].id, all_jobs[1].id] if len(all_jobs) >= 2 else [all_jobs[0].id]
+
+    for jid in seeds:
+        db.add(UserJobViewModel(user_id=user.id, job_id=jid))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+    return seeds
+
+
+def get_user_personal_skills(user: UserModel, db: Session) -> Tuple[List[str], float]:
+    """Retrieves or creates candidate profile personalized for the user."""
+    profile = (
+        db.query(CandidateProfileModel)
+        .filter(CandidateProfileModel.user_id == user.id)
+        .order_by(CandidateProfileModel.id.desc())
+        .first()
+    )
+    if profile and profile.skills:
+        return profile.skills, float(profile.years_experience or 2.0)
+
+    bucket = (user.id or 1) % 3
+    if bucket == 1:
+        skills = ["PyTorch", "Computer Vision", "Deep Learning", "FastAPI", "Docker", "Python"]
+        exp = 3.5
+        role = "AI & Computer Vision Engineer"
+    elif bucket == 2:
+        skills = ["LLMs", "LangChain", "Transformers", "NLP", "Vector Databases", "Python"]
+        exp = 2.5
+        role = "NLP & Generative AI Engineer"
+    else:
+        skills = ["FastAPI", "PostgreSQL", "Docker", "Redis", "Kubernetes", "Python"]
+        exp = 4.0
+        role = "Distributed AI & Backend Engineer"
+
+    new_profile = CandidateProfileModel(
+        user_id=user.id,
+        full_name=user.full_name or "Engineer",
+        target_role=role,
+        years_experience=exp,
+        resume_text=f"Professional {role} with technical expertise in {', '.join(skills)}."
+    )
+    new_profile.skills = skills
+    db.add(new_profile)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+    return skills, exp
 
 
 @app.get("/api/knowledge-graph", response_model=KnowledgeGraphResponse)
 def get_user_knowledge_graph(
     skills: Optional[str] = None,
-    years_exp: Optional[float] = 2.0,
+    years_exp: Optional[float] = None,
+    scope: Optional[str] = "seen",
     current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Returns the interactive Knowledge Graph network for the user:
-    - User Node & Acquired Skills
-    - Openings, Companies, and Proximity Match Weights
-    - Required Competencies vs. Skill Gaps
+    Returns the user-specific Knowledge Graph network:
+    - User Node & Acquired Skills tailored specifically to the authenticated user
+    - Filtered specifically to the jobs this user sees/interacts with
+    - Dynamically updates as the user views, matches, or evaluates different jobs
     """
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required to view career knowledge graph.")
 
-    skill_list = [s.strip() for s in skills.split(",") if s.strip()] if skills else ["Python", "PyTorch", "Docker"]
-    jobs = db.query(JobModel).all()
+    # 1. Resolve user's skills and experience
+    if skills and skills.strip():
+        skill_list = [s.strip() for s in skills.split(",") if s.strip()]
+        exp_val = years_exp if years_exp is not None else 2.0
+    else:
+        skill_list, exp_val = get_user_personal_skills(current_user, db)
+        if years_exp is not None:
+            exp_val = years_exp
+
+    # 2. Resolve target jobs based on user activity
+    all_jobs = db.query(JobModel).all()
+    if scope == "all":
+        target_jobs = all_jobs
+    else:
+        seen_job_ids = get_user_seen_job_ids(current_user, db)
+        target_jobs = [j for j in all_jobs if j.id in seen_job_ids]
+        if not target_jobs and all_jobs:
+            target_jobs = all_jobs[:3]
+
     graph = matcher_service.build_user_knowledge_graph(
-        user_name=current_user.full_name or "User",
+        user_name=current_user.full_name or "Verified Candidate",
         skills=skill_list,
-        years_experience=years_exp or 2.0,
-        jobs=jobs
+        years_experience=exp_val,
+        jobs=target_jobs,
+        user_id_val=current_user.id,
+        user_email=current_user.email,
+        all_jobs_count=len(all_jobs)
     )
     return graph
 

@@ -97,8 +97,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const graphNodeCount = document.getElementById("graph-node-count");
   const graphLinkCount = document.getElementById("graph-link-count");
   const graphSkillsCount = document.getElementById("graph-skills-count");
+  const graphJobsSeenCount = document.getElementById("graph-jobs-seen-count");
   const graphHighMatchCount = document.getElementById("graph-high-match-count");
   const graphFilterBtns = document.querySelectorAll(".graph-filter-btn");
+  const graphScopeToggleBtn = document.getElementById("graph-scope-toggle-btn");
   const graphSearchInput = document.getElementById("graph-search-input");
   const graphResetBtn = document.getElementById("graph-reset-btn");
   const graphInspectorCard = document.getElementById("graph-inspector-card");
@@ -108,6 +110,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const inspectorDetails = document.getElementById("inspector-details");
   const inspectorActions = document.getElementById("inspector-actions");
   const closeInspectorBtn = document.getElementById("close-inspector-btn");
+
+  async function trackJobView(jobId) {
+    if (!authToken || !jobId) return;
+    try {
+      await fetch(`/api/jobs/${encodeURIComponent(jobId)}/view`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+    } catch (e) {
+      console.warn("Failed to record job view:", e);
+    }
+  }
 
   // DOM Elements - AI Assistant
   const assistantToggleBtn = document.getElementById("assistant-toggle-btn");
@@ -863,9 +877,25 @@ document.addEventListener("DOMContentLoaded", () => {
         jobsTableBody.appendChild(tr);
       });
 
+      document.querySelectorAll(".btn-apply").forEach(link => {
+        link.addEventListener("click", () => {
+          const row = link.closest("tr");
+          const mBtn = row && row.querySelector(".select-job-btn");
+          const jId = mBtn && mBtn.getAttribute("data-job-id");
+          if (jId) {
+            trackJobView(jId);
+            setTimeout(loadKnowledgeGraph, 400);
+          }
+        });
+      });
+
       document.querySelectorAll(".select-job-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           const jId = btn.getAttribute("data-job-id");
+          if (jId) {
+            trackJobView(jId);
+            setTimeout(loadKnowledgeGraph, 400);
+          }
           jobSelect.value = jId;
           navItems.forEach(n => n.classList.remove("active"));
           viewSections.forEach(v => v.classList.remove("active"));
@@ -928,6 +958,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
       renderMatchResults(data);
+      loadKnowledgeGraph();
     } catch (err) {
       alert("Evaluation error: " + err.message);
     } finally {
@@ -1059,13 +1090,15 @@ document.addEventListener("DOMContentLoaded", () => {
     gap: "#F59E0B"
   };
 
+  let graphScope = "seen";
+
   async function loadKnowledgeGraph() {
     if (!authToken || !graphCanvas) return;
 
     try {
       const skillsQuery = Array.from(selectedSkills).join(",");
       const yearsExpQuery = parseFloat(expSlider.value) || 2.0;
-      const url = `/api/knowledge-graph?skills=${encodeURIComponent(skillsQuery)}&years_exp=${yearsExpQuery}`;
+      const url = `/api/knowledge-graph?skills=${encodeURIComponent(skillsQuery)}&years_exp=${yearsExpQuery}&scope=${graphScope}`;
 
       const res = await fetch(url, {
         headers: { "Authorization": `Bearer ${authToken}` }
@@ -1074,10 +1107,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
 
-      // Update KPI Bar
+      // If user profile has saved skills and selectedSkills was empty, populate them
+      if (selectedSkills.size === 0 && data.nodes) {
+        data.nodes.filter(n => n.type === "skill").forEach(sNode => {
+          selectedSkills.add(sNode.label);
+        });
+        document.querySelectorAll(".skill-chip").forEach(chip => {
+          if (selectedSkills.has(chip.textContent)) {
+            chip.classList.add("selected");
+          } else {
+            chip.classList.remove("selected");
+          }
+        });
+      }
+
+      // Update KPI Bar with user-specific metrics
       if (graphNodeCount) graphNodeCount.textContent = data.summary.total_entities || data.nodes.length;
       if (graphLinkCount) graphLinkCount.textContent = data.summary.total_connections || data.links.length;
       if (graphSkillsCount) graphSkillsCount.textContent = data.summary.acquired_skills || data.nodes.filter(n => n.type === "skill").length;
+      if (graphJobsSeenCount) graphJobsSeenCount.textContent = data.summary.jobs_seen || data.nodes.filter(n => n.type === "job").length;
       if (graphHighMatchCount) graphHighMatchCount.textContent = data.summary.high_fit_hubs || 0;
 
       // Initialize Simulation Nodes & Links
@@ -1454,12 +1502,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Knowledge Graph Filter Buttons
   graphFilterBtns.forEach(btn => {
+    if (btn.id === "graph-scope-toggle-btn") return;
     btn.addEventListener("click", () => {
-      graphFilterBtns.forEach(b => b.classList.remove("active"));
+      graphFilterBtns.forEach(b => {
+        if (b.id !== "graph-scope-toggle-btn") b.classList.remove("active");
+      });
       btn.classList.add("active");
       graphFilter = btn.getAttribute("data-filter") || "all";
     });
   });
+
+  // Scope Toggle: Seen Jobs vs All Market Jobs
+  if (graphScopeToggleBtn) {
+    graphScopeToggleBtn.addEventListener("click", () => {
+      if (graphScope === "seen") {
+        graphScope = "all";
+        graphScopeToggleBtn.textContent = "🌐 All Market Jobs";
+        graphScopeToggleBtn.classList.add("all-active");
+      } else {
+        graphScope = "seen";
+        graphScopeToggleBtn.textContent = "⚡ Seen Only";
+        graphScopeToggleBtn.classList.remove("all-active");
+      }
+      loadKnowledgeGraph();
+    });
+  }
 
   // Search input in graph
   if (graphSearchInput) {
@@ -1474,7 +1541,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (graphSearchInput) graphSearchInput.value = "";
       graphSearchQuery = "";
       graphFilter = "all";
-      graphFilterBtns.forEach((b, i) => b.classList.toggle("active", i === 0));
+      graphScope = "seen";
+      if (graphScopeToggleBtn) {
+        graphScopeToggleBtn.textContent = "⚡ Seen Only";
+        graphScopeToggleBtn.classList.remove("all-active");
+      }
+      graphFilterBtns.forEach(b => {
+        if (b.id !== "graph-scope-toggle-btn") {
+          b.classList.toggle("active", b.getAttribute("data-filter") === "all");
+        }
+      });
       if (graphInspectorCard) graphInspectorCard.style.display = "none";
       loadKnowledgeGraph();
     });
@@ -1607,9 +1683,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
               </a>
             </div>
-          `;
           bubble.appendChild(jobCard);
-        });
+
+          const chatApply = jobCard.querySelector(".btn-apply");
+          if (chatApply) {
+            chatApply.addEventListener("click", () => {
+              trackJobView(j.id);
+              setTimeout(loadKnowledgeGraph, 300);
+            });
+          }
       }
     }
 

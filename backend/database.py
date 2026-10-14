@@ -33,6 +33,7 @@ class UserModel(Base):
 
     candidates = relationship("CandidateProfileModel", back_populates="user", cascade="all, delete-orphan")
     matches = relationship("MatchHistoryModel", back_populates="user", cascade="all, delete-orphan")
+    job_views = relationship("UserJobViewModel", back_populates="user", cascade="all, delete-orphan")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -167,6 +168,26 @@ class MatchHistoryModel(Base):
             "readiness_level": self.readiness_level,
             "recommendations": json.loads(self.recommendations_json or "[]"),
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserJobViewModel(Base):
+    __tablename__ = "user_job_views"
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    job_id = Column(String(64), ForeignKey("jobs.id"), nullable=False, index=True)
+    viewed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("UserModel", back_populates="job_views")
+    job = relationship("JobModel")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "job_id": self.job_id,
+            "viewed_at": self.viewed_at.isoformat() if self.viewed_at else None,
         }
 
 

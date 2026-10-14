@@ -48,7 +48,7 @@ from backend.service import matcher_service
 from model.train import train_pipeline
 
 app = FastAPI(
-    title="TalentPulse — Career Intelligence & Suitability Engine",
+    title="TalentPulse",
     description="Enterprise candidate-job matching engine and skill diagnostics platform",
     version="1.0.0"
 )
@@ -278,9 +278,12 @@ def get_jobs(
     tier: Optional[str] = None,
     level: Optional[str] = None,
     query: Optional[str] = None,
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Retrieve all tech job openings with optional filtering."""
+    """Retrieve all tech job openings with optional filtering. Requires authentication."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to view market openings.")
     q = db.query(JobModel)
     if tier:
         q = q.filter(JobModel.tier == tier)
@@ -295,7 +298,13 @@ def get_jobs(
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobResponse)
-def get_job_by_id(job_id: str, db: Session = Depends(get_db)):
+def get_job_by_id(
+    job_id: str,
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to view job details.")
     job = db.query(JobModel).filter(JobModel.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job posting not found")
@@ -323,6 +332,8 @@ def analyze_candidate_profile(
     Computes semantic alignment against active openings and performs
     comprehensive skill-gap diagnosis with candidate data isolation.
     """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required to evaluate candidate profiles.")
     jobs = db.query(JobModel).all()
     if not jobs:
         raise HTTPException(status_code=404, detail="No job postings available for analysis")

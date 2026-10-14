@@ -1,7 +1,7 @@
 /**
  * TalentPulse — Frontend Controller
  * Minimalist, responsive, Claude & Gemini interaction mechanics.
- * Robust Authentication, Captcha, Single-Account Isolation, & Semantic Diagnostics.
+ * Robust Authentication Gate, Anti-Bot Captcha, & Multi-Tenant User Isolation.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -44,21 +44,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const jobsTableBody = document.getElementById("jobs-table-body");
   const retrainBtn = document.getElementById("retrain-btn");
 
-  // DOM Elements - Auth & Header
-  const unauthView = document.getElementById("unauth-view");
-  const authView = document.getElementById("auth-view");
+  // DOM Elements - Authenticated Sidebar & Header
   const authAvatar = document.getElementById("auth-avatar");
   const authUserName = document.getElementById("auth-user-name");
   const authUserEmail = document.getElementById("auth-user-email");
   const authUserProvider = document.getElementById("auth-user-provider");
   const logoutBtn = document.getElementById("logout-btn");
-  const openAuthModalBtn = document.getElementById("open-auth-modal-btn");
   const headerAuthBtn = document.getElementById("header-auth-btn");
-  const headerAccountLabel = document.getElementById("header-account-label");
 
-  // DOM Elements - Auth Modal
-  const authModal = document.getElementById("auth-modal");
-  const closeAuthModalBtn = document.getElementById("close-auth-modal-btn");
+  // DOM Elements - Auth Portal Form
   const tabLoginBtn = document.getElementById("tab-login-btn");
   const tabRegisterBtn = document.getElementById("tab-register-btn");
   const formLogin = document.getElementById("form-login");
@@ -75,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const regCaptchaQuestion = document.getElementById("reg-captcha-question");
   const refreshRegCaptchaBtn = document.getElementById("refresh-reg-captcha-btn");
 
-  // Demo Profiles
+  // Demo Profiles for quick-load
   const demoProfiles = {
     junior: {
       name: "Ahmed Raza",
@@ -98,7 +92,346 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ==============================================================================
-  // 1. NAVIGATION CONTROLLER
+  // 1. AUTHENTICATION & ACCESS CONTROL GATE
+  // ==============================================================================
+
+  function updateAuthUI() {
+    if (currentUser && authToken) {
+      document.body.classList.remove("not-authenticated");
+      document.body.classList.add("authenticated");
+      
+      authUserName.textContent = currentUser.full_name || "User";
+      authUserEmail.textContent = currentUser.email || "";
+
+      // Initials avatar
+      const initials = (currentUser.full_name || "User")
+        .split(" ")
+        .map(n => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+      authAvatar.textContent = initials || "U";
+
+      // Provider badge
+      let providerLabel = "Verified Account";
+      if (currentUser.auth_provider === "google") providerLabel = "Google Account";
+      if (currentUser.auth_provider === "github") providerLabel = "GitHub Account";
+      authUserProvider.textContent = providerLabel;
+
+      if (candNameInput.value === "Hamza Tariq" && currentUser.full_name) {
+        candNameInput.value = currentUser.full_name;
+      }
+
+      // Load platform data once authenticated
+      loadSkills();
+      loadJobs();
+      loadMetrics();
+    } else {
+      document.body.classList.remove("authenticated");
+      document.body.classList.add("not-authenticated");
+      fetchCaptcha("login");
+    }
+  }
+
+  async function verifyCurrentSession() {
+    if (!authToken) {
+      updateAuthUI();
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        currentUser = await res.json();
+        localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem("talentpulse_token");
+        localStorage.removeItem("talentpulse_user");
+        authToken = null;
+        currentUser = null;
+      }
+    } catch (err) {
+      console.warn("Session check failed:", err);
+    }
+    updateAuthUI();
+  }
+
+  async function fetchCaptcha(mode = "login") {
+    const questionElem = mode === "login" ? loginCaptchaQuestion : regCaptchaQuestion;
+    if (!questionElem) return;
+    questionElem.textContent = "Loading...";
+
+    try {
+      const res = await fetch("/api/auth/captcha");
+      if (res.ok) {
+        const data = await res.json();
+        captchaTokens[mode] = data.captcha_token;
+        questionElem.textContent = data.captcha_question;
+      } else {
+        questionElem.textContent = "Error loading";
+      }
+    } catch (err) {
+      questionElem.textContent = "Connection error";
+    }
+  }
+
+  function showAuthAlert(message, type = "error") {
+    authAlert.textContent = message;
+    authAlert.className = `auth-alert ${type}`;
+    authAlert.style.display = "block";
+  }
+
+  function clearAuthAlert() {
+    authAlert.textContent = "";
+    authAlert.style.display = "none";
+  }
+
+  function switchTab(tab) {
+    clearAuthAlert();
+    if (tab === "login") {
+      tabLoginBtn.classList.add("active");
+      tabRegisterBtn.classList.remove("active");
+      formLogin.style.display = "flex";
+      formRegister.style.display = "none";
+      fetchCaptcha("login");
+    } else {
+      tabRegisterBtn.classList.add("active");
+      tabLoginBtn.classList.remove("active");
+      formRegister.style.display = "flex";
+      formLogin.style.display = "none";
+      fetchCaptcha("register");
+    }
+  }
+
+  tabLoginBtn.addEventListener("click", () => switchTab("login"));
+  tabRegisterBtn.addEventListener("click", () => switchTab("register"));
+  switchToRegisterLink.addEventListener("click", (e) => { e.preventDefault(); switchTab("register"); });
+  switchToLoginLink.addEventListener("click", (e) => { e.preventDefault(); switchTab("login"); });
+
+  refreshLoginCaptchaBtn.addEventListener("click", () => fetchCaptcha("login"));
+  refreshRegCaptchaBtn.addEventListener("click", () => fetchCaptcha("register"));
+
+  // Handle Register Form Submission
+  formRegister.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAuthAlert();
+
+    const fullName = document.getElementById("reg-fullname").value.trim();
+    const email = document.getElementById("reg-email").value.trim().toLowerCase();
+    const password = document.getElementById("reg-password").value;
+    const confirmPassword = document.getElementById("reg-confirm-password").value;
+    const captchaAnswer = document.getElementById("reg-captcha-answer").value.trim();
+
+    if (!fullName) {
+      showAuthAlert("Please provide your full name.");
+      return;
+    }
+    const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+    if (!emailRegex.test(email)) {
+      showAuthAlert("Please enter a valid email address (e.g. name@domain.com).");
+      return;
+    }
+    if (password.length < 6) {
+      showAuthAlert("Password must be at least 6 characters long.");
+      return;
+    }
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      showAuthAlert("Password must contain both letters and numbers.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      showAuthAlert("Passwords do not match.");
+      return;
+    }
+    if (!captchaAnswer) {
+      showAuthAlert("Please solve the mathematical security challenge.");
+      return;
+    }
+
+    const submitBtn = document.getElementById("reg-submit-btn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating Account...";
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          password: password,
+          captcha_token: captchaTokens.register || "",
+          captcha_answer: captchaAnswer
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showAuthAlert(data.detail || "Registration failed. Please try again.");
+        fetchCaptcha("register");
+        return;
+      }
+
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem("talentpulse_token", authToken);
+      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+
+      showAuthAlert("Account created successfully! Entering TalentPulse...", "success");
+      setTimeout(updateAuthUI, 800);
+    } catch (err) {
+      showAuthAlert("Network connection error: " + err.message);
+      fetchCaptcha("register");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Create Account";
+    }
+  });
+
+  // Handle Login Form Submission
+  formLogin.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAuthAlert();
+
+    const email = document.getElementById("login-email").value.trim().toLowerCase();
+    const password = document.getElementById("login-password").value;
+    const captchaAnswer = document.getElementById("login-captcha-answer").value.trim();
+
+    if (!email || !password) {
+      showAuthAlert("Please enter your email and password.");
+      return;
+    }
+    if (!captchaAnswer) {
+      showAuthAlert("Please solve the security challenge.");
+      return;
+    }
+
+    const submitBtn = document.getElementById("login-submit-btn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Authenticating...";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          captcha_token: captchaTokens.login || "",
+          captcha_answer: captchaAnswer
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showAuthAlert(data.detail || "Invalid credentials.");
+        fetchCaptcha("login");
+        return;
+      }
+
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem("talentpulse_token", authToken);
+      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+
+      showAuthAlert("Signed in successfully!", "success");
+      setTimeout(updateAuthUI, 500);
+    } catch (err) {
+      showAuthAlert("Network connection error: " + err.message);
+      fetchCaptcha("login");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Sign In to TalentPulse";
+    }
+  });
+
+  // Handle Google OAuth Sign-In
+  googleLoginBtn.addEventListener("click", async () => {
+    clearAuthAlert();
+    const promptEmail = prompt("Continue with Google:\nEnter your Gmail or Workspace email:", "hamza.ihsan@gmail.com");
+    if (!promptEmail || !promptEmail.includes("@")) return;
+
+    try {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: promptEmail.trim().toLowerCase(),
+          full_name: promptEmail.split("@")[0].replace(".", " ").replace(/\b\w/g, c => c.toUpperCase())
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAuthAlert(data.detail || "Google authentication failed.");
+        return;
+      }
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem("talentpulse_token", authToken);
+      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+      updateAuthUI();
+    } catch (err) {
+      showAuthAlert("Google OAuth error: " + err.message);
+    }
+  });
+
+  // Handle GitHub OAuth Sign-In
+  githubLoginBtn.addEventListener("click", async () => {
+    clearAuthAlert();
+    const promptUsername = prompt("Continue with GitHub:\nEnter your GitHub username or developer email:", "hamzaihsan9");
+    if (!promptUsername) return;
+
+    const email = promptUsername.includes("@") ? promptUsername : `${promptUsername.toLowerCase()}@users.noreply.github.com`;
+
+    try {
+      const res = await fetch("/api/auth/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          full_name: promptUsername.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showAuthAlert(data.detail || "GitHub authentication failed.");
+        return;
+      }
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem("talentpulse_token", authToken);
+      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
+      updateAuthUI();
+    } catch (err) {
+      showAuthAlert("GitHub OAuth error: " + err.message);
+    }
+  });
+
+  // Handle Logout
+  async function handleLogout() {
+    if (authToken) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${authToken}` }
+        });
+      } catch (e) {
+        // Ignore network errors on logout
+      }
+    }
+    localStorage.removeItem("talentpulse_token");
+    localStorage.removeItem("talentpulse_user");
+    authToken = null;
+    currentUser = null;
+    updateAuthUI();
+  }
+
+  logoutBtn.addEventListener("click", handleLogout);
+  headerAuthBtn.addEventListener("click", handleLogout);
+
+  // ==============================================================================
+  // 2. NAVIGATION & PLATFORM CONTROLS
   // ==============================================================================
   const viewTitles = {
     "match-view": "Match & Diagnose",
@@ -156,383 +489,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==============================================================================
-  // 2. AUTHENTICATION & SESSION MANAGEMENT
-  // ==============================================================================
-
-  function updateAuthUI() {
-    if (currentUser && authToken) {
-      unauthView.style.display = "none";
-      authView.style.display = "flex";
-      
-      authUserName.textContent = currentUser.full_name || "User";
-      authUserEmail.textContent = currentUser.email || "";
-
-      // Initials avatar
-      const initials = (currentUser.full_name || "User")
-        .split(" ")
-        .map(n => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-      authAvatar.textContent = initials || "U";
-
-      // Provider badge
-      let providerLabel = "Verified Account";
-      if (currentUser.auth_provider === "google") providerLabel = "Google Account";
-      if (currentUser.auth_provider === "github") providerLabel = "GitHub Account";
-      authUserProvider.textContent = providerLabel;
-
-      headerAccountLabel.textContent = (currentUser.full_name || "User").split(" ")[0];
-      
-      // Auto-fill candidate name if not modified
-      if (candNameInput.value === "Hamza Tariq" && currentUser.full_name) {
-        candNameInput.value = currentUser.full_name;
-      }
-    } else {
-      unauthView.style.display = "flex";
-      authView.style.display = "none";
-      headerAccountLabel.textContent = "Sign In";
-    }
-  }
-
-  async function verifyCurrentSession() {
-    if (!authToken) {
-      updateAuthUI();
-      return;
-    }
-    try {
-      const res = await fetch("/api/auth/me", {
-        headers: { "Authorization": `Bearer ${authToken}` }
-      });
-      if (res.ok) {
-        currentUser = await res.json();
-        localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-      } else {
-        // Token expired or invalid
-        localStorage.removeItem("talentpulse_token");
-        localStorage.removeItem("talentpulse_user");
-        authToken = null;
-        currentUser = null;
-      }
-    } catch (err) {
-      console.warn("Session check failed:", err);
-    }
-    updateAuthUI();
-  }
-
-  async function fetchCaptcha(mode = "login") {
-    const questionElem = mode === "login" ? loginCaptchaQuestion : regCaptchaQuestion;
-    if (!questionElem) return;
-    questionElem.textContent = "Loading...";
-
-    try {
-      const res = await fetch("/api/auth/captcha");
-      if (res.ok) {
-        const data = await res.json();
-        captchaTokens[mode] = data.captcha_token;
-        questionElem.textContent = data.captcha_question;
-      } else {
-        questionElem.textContent = "Error loading";
-      }
-    } catch (err) {
-      questionElem.textContent = "Connection error";
-    }
-  }
-
-  function showAuthAlert(message, type = "error") {
-    authAlert.textContent = message;
-    authAlert.className = `auth-alert ${type}`;
-    authAlert.style.display = "block";
-  }
-
-  function clearAuthAlert() {
-    authAlert.textContent = "";
-    authAlert.style.display = "none";
-  }
-
-  function openAuthModal(defaultTab = "login") {
-    clearAuthAlert();
-    authModal.style.display = "flex";
-    if (defaultTab === "register") {
-      switchTab("register");
-    } else {
-      switchTab("login");
-    }
-  }
-
-  function closeAuthModal() {
-    authModal.style.display = "none";
-    clearAuthAlert();
-  }
-
-  function switchTab(tab) {
-    clearAuthAlert();
-    if (tab === "login") {
-      tabLoginBtn.classList.add("active");
-      tabRegisterBtn.classList.remove("active");
-      formLogin.style.display = "flex";
-      formRegister.style.display = "none";
-      fetchCaptcha("login");
-    } else {
-      tabRegisterBtn.classList.add("active");
-      tabLoginBtn.classList.remove("active");
-      formRegister.style.display = "flex";
-      formLogin.style.display = "none";
-      fetchCaptcha("register");
-    }
-  }
-
-  // Event Listeners for Auth Modal
-  openAuthModalBtn.addEventListener("click", () => openAuthModal("login"));
-  headerAuthBtn.addEventListener("click", () => {
-    if (currentUser) {
-      // Toggle sign out or show notification
-      if (confirm(`You are currently signed in as ${currentUser.full_name} (${currentUser.email}). Sign out?`)) {
-        handleLogout();
-      }
-    } else {
-      openAuthModal("login");
-    }
-  });
-
-  closeAuthModalBtn.addEventListener("click", closeAuthModal);
-  authModal.addEventListener("click", (e) => {
-    if (e.target === authModal) closeAuthModal();
-  });
-
-  tabLoginBtn.addEventListener("click", () => switchTab("login"));
-  tabRegisterBtn.addEventListener("click", () => switchTab("register"));
-  switchToRegisterLink.addEventListener("click", (e) => { e.preventDefault(); switchTab("register"); });
-  switchToLoginLink.addEventListener("click", (e) => { e.preventDefault(); switchTab("login"); });
-
-  refreshLoginCaptchaBtn.addEventListener("click", () => fetchCaptcha("login"));
-  refreshRegCaptchaBtn.addEventListener("click", () => fetchCaptcha("register"));
-
-  // Handle Register Form Submission
-  formRegister.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    clearAuthAlert();
-
-    const fullName = document.getElementById("reg-fullname").value.trim();
-    const email = document.getElementById("reg-email").value.trim().toLowerCase();
-    const password = document.getElementById("reg-password").value;
-    const confirmPassword = document.getElementById("reg-confirm-password").value;
-    const captchaAnswer = document.getElementById("reg-captcha-answer").value.trim();
-
-    // Client-side validations
-    if (!fullName) {
-      showAuthAlert("Please provide your full name.");
-      return;
-    }
-    const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
-    if (!emailRegex.test(email)) {
-      showAuthAlert("Please enter a valid email address (e.g. name@domain.com).");
-      return;
-    }
-    if (password.length < 6) {
-      showAuthAlert("Password must be at least 6 characters long.");
-      return;
-    }
-    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-      showAuthAlert("Password must contain both letters and numbers.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      showAuthAlert("Passwords do not match.");
-      return;
-    }
-    if (!captchaAnswer) {
-      showAuthAlert("Please solve the mathematical security challenge.");
-      return;
-    }
-
-    const submitBtn = document.getElementById("reg-submit-btn");
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Creating Account...";
-
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: fullName,
-          email: email,
-          password: password,
-          captcha_token: captchaTokens.register || "",
-          captcha_answer: captchaAnswer
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "Registration failed. Please try again.");
-        fetchCaptcha("register");
-        return;
-      }
-
-      // Success
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-
-      showAuthAlert("Account created successfully! Welcome to TalentPulse.", "success");
-      updateAuthUI();
-      setTimeout(closeAuthModal, 1200);
-    } catch (err) {
-      showAuthAlert("Network connection error: " + err.message);
-      fetchCaptcha("register");
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Create Account";
-    }
-  });
-
-  // Handle Login Form Submission
-  formLogin.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    clearAuthAlert();
-
-    const email = document.getElementById("login-email").value.trim().toLowerCase();
-    const password = document.getElementById("login-password").value;
-    const captchaAnswer = document.getElementById("login-captcha-answer").value.trim();
-
-    if (!email || !password) {
-      showAuthAlert("Please enter your email and password.");
-      return;
-    }
-    if (!captchaAnswer) {
-      showAuthAlert("Please solve the security challenge.");
-      return;
-    }
-
-    const submitBtn = document.getElementById("login-submit-btn");
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Authenticating...";
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          captcha_token: captchaTokens.login || "",
-          captcha_answer: captchaAnswer
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "Invalid credentials.");
-        fetchCaptcha("login");
-        return;
-      }
-
-      // Success
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-
-      showAuthAlert("Successfully signed in!", "success");
-      updateAuthUI();
-      setTimeout(closeAuthModal, 800);
-    } catch (err) {
-      showAuthAlert("Network connection error: " + err.message);
-      fetchCaptcha("login");
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Sign In";
-    }
-  });
-
-  // Handle Google OAuth Sign-In
-  googleLoginBtn.addEventListener("click", async () => {
-    clearAuthAlert();
-    const promptEmail = prompt("Continue with Google:\nEnter your Gmail or Workspace email:", currentUser ? currentUser.email : "hamza.ihsan@gmail.com");
-    if (!promptEmail || !promptEmail.includes("@")) return;
-
-    try {
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: promptEmail.trim().toLowerCase(),
-          full_name: promptEmail.split("@")[0].replace(".", " ").replace(/\b\w/g, c => c.toUpperCase())
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "Google authentication failed.");
-        return;
-      }
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-      updateAuthUI();
-      closeAuthModal();
-    } catch (err) {
-      showAuthAlert("Google OAuth error: " + err.message);
-    }
-  });
-
-  // Handle GitHub OAuth Sign-In
-  githubLoginBtn.addEventListener("click", async () => {
-    clearAuthAlert();
-    const promptUsername = prompt("Continue with GitHub:\nEnter your GitHub username or developer email:", "hamzaihsan9");
-    if (!promptUsername) return;
-
-    const email = promptUsername.includes("@") ? promptUsername : `${promptUsername.toLowerCase()}@users.noreply.github.com`;
-
-    try {
-      const res = await fetch("/api/auth/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          full_name: promptUsername.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showAuthAlert(data.detail || "GitHub authentication failed.");
-        return;
-      }
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem("talentpulse_token", authToken);
-      localStorage.setItem("talentpulse_user", JSON.stringify(currentUser));
-      updateAuthUI();
-      closeAuthModal();
-    } catch (err) {
-      showAuthAlert("GitHub OAuth error: " + err.message);
-    }
-  });
-
-  // Handle Logout
-  async function handleLogout() {
-    if (authToken) {
-      try {
-        await fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${authToken}` }
-        });
-      } catch (e) {
-        // Ignore network errors on logout
-      }
-    }
-    localStorage.removeItem("talentpulse_token");
-    localStorage.removeItem("talentpulse_user");
-    authToken = null;
-    currentUser = null;
-    updateAuthUI();
-  }
-
-  logoutBtn.addEventListener("click", handleLogout);
-
-  // ==============================================================================
   // 3. SKILLS TAXONOMY & JOBS CATALOG
   // ==============================================================================
 
@@ -542,7 +498,6 @@ document.addEventListener("DOMContentLoaded", () => {
       allSkillsTaxonomy = await res.json();
       
       chipContainer.innerHTML = "";
-      // High-impact skills for quick-chips
       const primarySkills = [
         "PyTorch", "Python", "Deep Learning", "Transformers", "LLMs", "RAG", 
         "LangChain", "Vector Databases", "Docker", "FastAPI", "SQL", 
@@ -571,8 +526,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function loadJobs() {
+    if (!authToken) return;
     try {
-      const res = await fetch("/api/jobs");
+      const res = await fetch("/api/jobs", {
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+      if (!res.ok) return;
       jobsCache = await res.json();
 
       jobSelect.innerHTML = '<option value="">Compare across all active market jobs</option>';
@@ -611,12 +570,10 @@ document.addEventListener("DOMContentLoaded", () => {
         jobsTableBody.appendChild(tr);
       });
 
-      // Target Opening Buttons inside Table
       document.querySelectorAll(".select-job-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           const jId = btn.getAttribute("data-job-id");
           jobSelect.value = jId;
-          // Switch to match view
           navItems.forEach(n => n.classList.remove("active"));
           viewSections.forEach(v => v.classList.remove("active"));
           document.querySelector('[data-view="match-view"]').classList.add("active");
@@ -636,6 +593,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==============================================================================
 
   async function triggerMatchAnalysis() {
+    if (!authToken) {
+      alert("Please sign in to run candidate matching.");
+      updateAuthUI();
+      return;
+    }
+
     const name = candNameInput.value.trim() || (currentUser ? currentUser.full_name : "Candidate");
     const yearsExp = parseFloat(expSlider.value) || 0.0;
     const resumeText = resumeTextInput.value.trim();
@@ -656,18 +619,19 @@ document.addEventListener("DOMContentLoaded", () => {
         target_job_id: targetJobId
       };
 
-      const headers = { "Content-Type": "application/json" };
-      if (authToken) {
-        headers["Authorization"] = `Bearer ${authToken}`;
-      }
-
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: headers,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Suitability evaluation failed");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Suitability evaluation failed");
+      }
 
       const data = await res.json();
       renderMatchResults(data);
@@ -797,9 +761,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Initial Boot
+  // Start with session check
   verifyCurrentSession();
-  loadSkills();
-  loadJobs();
-  loadMetrics();
 });

@@ -97,93 +97,78 @@ body.authenticated #auth-portal-screen {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  padding: 12px;
   background: 
-    radial-gradient(circle at 12% 18%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 88% 22%, rgba(16, 185, 129, 0.13) 0%, transparent 42%),
-    radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.1) 0%, transparent 48%),
-    radial-gradient(circle at 75% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 35%),
+    radial-gradient(circle at 12% 18%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 88% 22%, rgba(16, 185, 129, 0.12) 0%, transparent 42%),
+    radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 48%),
+    radial-gradient(circle at 75% 80%, rgba(6, 182, 212, 0.07) 0%, transparent 35%),
     #F8FAF8;
 }
 
 .auth-portal-card {
   background-color: var(--bg-secondary);
-  border: 1px solid rgba(16, 185, 129, 0.22);
-  border-radius: var(--radius-lg);
+  border: 1px solid rgba(13, 115, 75, 0.25);
+  border-radius: var(--radius-md);
   width: 100%;
-  max-width: 430px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 45px -12px rgba(10, 30, 20, 0.14), 0 0 35px rgba(99, 102, 241, 0.08);
-  padding: 24px 26px;
-  animation: portalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-light) transparent;
-}
-
-.auth-portal-card::-webkit-scrollbar {
-  width: 5px;
-}
-.auth-portal-card::-webkit-scrollbar-thumb {
-  background-color: var(--border-light);
-  border-radius: 4px;
+  max-width: 380px;
+  box-shadow: 0 16px 40px -10px rgba(10, 30, 20, 0.18), 0 0 25px rgba(13, 115, 75, 0.06);
+  padding: 16px 20px;
+  animation: portalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes portalScaleUp {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .auth-portal-header {
   text-align: center;
-  margin-bottom: 12px;
-}
-
-.brand-logo-centered {
-  display: flex;
-  justify-content: center;
   margin-bottom: 8px;
 }
 
-.brand-svg-vibrant {
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35), 0 2px 8px rgba(16, 185, 129, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.portal-brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 
-.brand-svg-vibrant:hover {
-  transform: scale(1.04) rotate(-2deg);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45), 0 3px 10px rgba(16, 185, 129, 0.35);
+.brand-svg-dark {
+  border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(6, 28, 20, 0.35);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
 
-.portal-badge-pill {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #4F46E5;
-  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(16,185,129,0.12));
-  border: 1px solid rgba(99,102,241,0.25);
-  padding: 2px 8px;
-  border-radius: 9999px;
-  margin-bottom: 6px;
+.brand-svg-dark:hover {
+  transform: scale(1.05);
+}
+
+.portal-brand-titles {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
 }
 
 .portal-title {
   font-family: var(--font-serif);
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--text-main);
+  color: #0A1F18;
   letter-spacing: -0.02em;
   line-height: 1.1;
+  margin: 0;
 }
 
-.portal-subtitle {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-  line-height: 1.45;
+.portal-tagline {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-green);
+  line-height: 1.2;
 }
 
 /* Auth Tabs */
@@ -193,18 +178,18 @@ body.authenticated #auth-portal-screen {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  padding: 3px;
-  margin-bottom: 14px;
+  padding: 2px;
+  margin-bottom: 8px;
 }
 
 .auth-tab {
   background: none;
   border: none;
-  padding: 7px 12px;
-  font-size: 13px;
+  padding: 5px 8px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -220,14 +205,14 @@ body.authenticated #auth-portal-screen {
 .social-login-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 7px;
 }
 
 .social-login-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 7px;
 }
 
 .btn-social {
@@ -235,17 +220,18 @@ body.authenticated #auth-portal-screen {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  font-size: 12.5px;
+  padding: 5px 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   transition: all 0.15s ease;
   box-shadow: var(--shadow-subtle);
+  height: 32px;
 }
 
 .btn-social:hover {
@@ -254,8 +240,8 @@ body.authenticated #auth-portal-screen {
 }
 
 .social-icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
@@ -264,7 +250,7 @@ body.authenticated #auth-portal-screen {
   display: flex;
   align-items: center;
   text-align: center;
-  margin: 12px 0;
+  margin: 6px 0;
 }
 
 .auth-divider::before, .auth-divider::after {
@@ -275,7 +261,7 @@ body.authenticated #auth-portal-screen {
 
 .auth-divider span {
   padding: 0 8px;
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -283,11 +269,11 @@ body.authenticated #auth-portal-screen {
 
 /* Alert Box */
 .auth-alert {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  font-size: 12.5px;
-  margin-bottom: 12px;
-  line-height: 1.4;
+  font-size: 11.5px;
+  margin-bottom: 8px;
+  line-height: 1.35;
 }
 
 .auth-alert.error {
@@ -306,52 +292,56 @@ body.authenticated #auth-portal-screen {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .auth-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
 .auth-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .auth-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
-/* Captcha Challenge Box */
-.captcha-box {
+.auth-field .text-input {
+  padding: 6px 9px;
+  font-size: 12.5px;
+  height: 32px;
+}
+
+/* Single-Line Compact Horizontal Captcha Box */
+.captcha-box-inline {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.captcha-box.compact {
-  padding: 8px 10px;
-  gap: 6px;
-}
-
-.captcha-challenge-row {
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0;
+}
+
+.captcha-challenge-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
 }
 
 .captcha-badge {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9.5px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--accent-green);
@@ -362,21 +352,22 @@ body.authenticated #auth-portal-screen {
 
 .captcha-text {
   font-family: var(--font-mono);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-main);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
 }
 
 .btn-refresh-captcha {
   background: none;
   border: none;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 1px 3px;
+  border-radius: 3px;
   transition: all 0.15s ease;
+  line-height: 1;
 }
 
 .btn-refresh-captcha:hover {
@@ -384,35 +375,42 @@ body.authenticated #auth-portal-screen {
   transform: rotate(45deg);
 }
 
-.captcha-input {
+.captcha-input-inline {
+  width: 72px;
+  text-align: center;
+  padding: 4px 6px;
+  font-size: 12.5px;
+  height: 28px;
   background-color: var(--bg-secondary);
-  padding: 7px 10px;
-  font-size: 13px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .auth-policy-note {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.35;
   background-color: var(--bg-tertiary);
-  padding: 6px 8px;
-  border-radius: 5px;
+  padding: 5px 8px;
+  border-radius: 4px;
 }
 
 .auth-submit-btn {
   width: 100%;
   justify-content: center;
-  padding: 10px;
-  font-size: 13.5px;
+  padding: 7px 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  margin-top: 4px;
+  height: 34px;
+  margin-top: 3px;
 }
 
 .auth-switch-text {
   text-align: center;
-  font-size: 12.5px;
+  font-size: 11px;
   color: var(--text-secondary);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .auth-switch-text a {

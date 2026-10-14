@@ -46,7 +46,9 @@ from backend.auth import (
     validate_email_format,
     validate_password_strength,
     generate_session_token,
-    get_current_user_optional
+    get_current_user_optional,
+    verify_google_credentials,
+    verify_github_credentials
 )
 from backend.service import matcher_service
 from model.train import train_pipeline
@@ -194,7 +196,8 @@ def login_user(req: UserLoginRequest, db: Session = Depends(get_db)):
 def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     """
     Google (Gmail) Sign-In API with credentials and verification.
-    Authenticates user securely with verified Google identity and password/code.
+    Authenticates user securely against Google authentication servers.
+    Rejects invalid/incorrect credentials with 401 Unauthorized.
     """
     email_clean = req.email.strip().lower()
     validate_email_format(email_clean)
@@ -202,12 +205,15 @@ def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     if not req.password and not req.verification_code:
         raise HTTPException(
             status_code=400,
-            detail="Password or 2-step verification code is required to sign in with Google."
+            detail="Password or Google App Password is required to verify and link your Google account."
         )
 
     pwd = (req.password or req.verification_code or "").strip()
     if len(pwd) < 4:
         raise HTTPException(status_code=400, detail="Invalid Google password or security key.")
+
+    # Live verification directly against Google's authentication servers
+    verify_google_credentials(email_clean, pwd)
 
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
     session_token = generate_session_token()
@@ -224,13 +230,7 @@ def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
         )
         db.add(user)
     else:
-        if user.password_hash and user.salt:
-            if not verify_password(pwd, user.salt, user.password_hash):
-                raise HTTPException(status_code=401, detail="Incorrect Google account credentials. Please verify your password.")
-        else:
-            salt, pwd_hash = hash_password(pwd)
-            user.password_hash = pwd_hash
-            user.salt = salt
+        user.auth_provider = "google"
         user.session_token = session_token
 
     db.commit()
@@ -239,14 +239,14 @@ def google_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     return {
         "user": user.to_dict(),
         "token": session_token,
-        "message": "Successfully authenticated via Google Identity."
+        "message": "Successfully authenticated via verified Google account."
     }
 
 
 @app.post("/api/auth/github", response_model=AuthResponse)
 def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     """
-    GitHub Developer Sign-In API with credentials and verification.
+    GitHub Developer Sign-In API with live API verification.
     """
     email_clean = req.email.strip().lower()
     validate_email_format(email_clean)
@@ -254,12 +254,15 @@ def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     if not req.password and not req.verification_code:
         raise HTTPException(
             status_code=400,
-            detail="Password or personal access token is required to authorize with GitHub."
+            detail="GitHub Personal Access Token is required to authorize with GitHub."
         )
 
     pwd = (req.password or req.verification_code or "").strip()
     if len(pwd) < 4:
-        raise HTTPException(status_code=400, detail="Invalid GitHub password or personal token.")
+        raise HTTPException(status_code=400, detail="Invalid GitHub personal token.")
+
+    # Live verification directly against GitHub API
+    gh_username = verify_github_credentials(email_clean, pwd)
 
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
     session_token = generate_session_token()
@@ -268,7 +271,7 @@ def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
         salt, pwd_hash = hash_password(pwd)
         user = UserModel(
             email=email_clean,
-            full_name=(req.full_name or "").strip() or "GitHub Developer",
+            full_name=gh_username or (req.full_name or "").strip() or "GitHub Developer",
             password_hash=pwd_hash,
             salt=salt,
             auth_provider="github",
@@ -276,13 +279,7 @@ def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
         )
         db.add(user)
     else:
-        if user.password_hash and user.salt:
-            if not verify_password(pwd, user.salt, user.password_hash):
-                raise HTTPException(status_code=401, detail="Incorrect GitHub account credentials. Please check your password.")
-        else:
-            salt, pwd_hash = hash_password(pwd)
-            user.password_hash = pwd_hash
-            user.salt = salt
+        user.auth_provider = "github"
         user.session_token = session_token
 
     db.commit()
@@ -291,7 +288,7 @@ def github_oauth_sign_in(req: OAuthLoginRequest, db: Session = Depends(get_db)):
     return {
         "user": user.to_dict(),
         "token": session_token,
-        "message": "Successfully authenticated via GitHub."
+        "message": "Successfully authenticated via verified GitHub account."
     }
 
 

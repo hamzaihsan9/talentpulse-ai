@@ -291,6 +291,15 @@ class TestTalentPulseAI(unittest.TestCase):
         with self.assertRaises(ValidationError):
             OAuthLoginRequest(email="notanemail", password="pwd")
 
+        # Wrong password for Gmail must be rejected with 401
+        from backend.auth import verify_google_credentials
+        from fastapi import HTTPException
+        with self.assertRaises(HTTPException) as ctx:
+            verify_google_credentials("test_unregistered_9283@gmail.com", "wrongpassword")
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertIn("Google Authentication Failed", ctx.exception.detail)
+        print(f"[Pass] Wrong Gmail credentials correctly rejected by Google with 401: {ctx.exception.detail[:60]}...")
+
         print("[Pass] OAuth request schemas and verification credential constraints validated.")
 
 

@@ -334,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchCaptcha("register");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Create Account";
+      submitBtn.textContent = "Continue & Create Account →";
     }
   });
 
@@ -391,7 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchCaptcha("login");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Sign In to TalentPulse";
+      submitBtn.textContent = "Continue to TalentPulse →";
     }
   });
 

@@ -106,3 +106,84 @@ def get_current_user_optional(
     token = authorization.replace("Bearer ", "").strip()
     user = db.query(UserModel).filter(UserModel.session_token == token).first()
     return user
+
+
+def verify_google_credentials(email: str, password_or_code: str):
+    """
+    Live verification against Google's authentication servers.
+    Verifies Gmail credentials via SSL directly with Google, or via Google OAuth2 token.
+    """
+    import imaplib
+    import urllib.request
+    import json
+
+    cleaned_email = email.strip().lower()
+    cleaned_cred = password_or_code.strip()
+
+    # 1. If credential is a Google OAuth ID Token (JWT format)
+    if cleaned_cred.startswith("eyJ") and "." in cleaned_cred:
+        try:
+            req = urllib.request.Request(
+                f"https://oauth2.googleapis.com/tokeninfo?id_token={cleaned_cred}",
+                headers={"User-Agent": "TalentPulse-AI"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as response:
+                token_data = json.loads(response.read().decode())
+                if token_data.get("email", "").lower() != cleaned_email:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Google Token Mismatch: The authenticated Google account does not match the entered email."
+                    )
+                return True
+        except urllib.error.HTTPError:
+            raise HTTPException(
+                status_code=401,
+                detail="Google Authentication Failed: The provided Google ID token is invalid or expired."
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Google token verification failed: {str(e)}")
+
+    # 2. Live verification directly with Google authentication servers (IMAP SSL)
+    try:
+        mail = imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=7)
+        mail.login(cleaned_email, cleaned_cred)
+        mail.logout()
+        return True
+    except imaplib.IMAP4.error as err:
+        raise HTTPException(
+            status_code=401,
+            detail="Google Authentication Failed: Incorrect password or invalid Google credentials. Google rejected the login attempt. If you have 2-Step Verification enabled on Gmail, please use a Google App Password (myaccount.google.com/apppasswords)."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not connect to Google authentication servers: {str(e)}"
+        )
+
+
+def verify_github_credentials(email_or_username: str, token_or_pwd: str):
+    """
+    Live verification against GitHub API.
+    """
+    import urllib.request
+    import json
+
+    token_clean = token_or_pwd.strip()
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {token_clean}", "User-Agent": "TalentPulse-AI"}
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            gh_data = json.loads(resp.read().decode())
+            return gh_data.get("login") or gh_data.get("name") or "GitHub User"
+    except urllib.error.HTTPError as err:
+        if err.code == 401:
+            raise HTTPException(
+                status_code=401,
+                detail="GitHub Authorization Failed: Invalid GitHub Personal Access Token or credentials. GitHub rejected authorization."
+            )
+        raise HTTPException(status_code=err.code, detail=f"GitHub API Error: {err.reason}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not connect to GitHub API: {str(e)}")
+

@@ -125,20 +125,7 @@ Open your browser at **http://127.0.0.1:8000** to access the Claude/Gemini-style
 
 ---
 
-## 6. How to Talk About This in an AI Engineer Interview (Pakistan & Remote)
-
-When interviewers at **Systems Ltd, 10Pearls, Arbisoft, Devsinc**, or US remote startups ask you about your hands-on AI projects, use this framework:
-
-| Interview Question | How TalentPulse AI Answers It |
-| :--- | :--- |
-| *"Why didn't you just use an LLM API for matching?"* | *"LLM prompting for batch candidate ranking is non-deterministic, introduces high latency (1-3s per pair), and costs scale linearly. By training an asymmetric dual-encoder in PyTorch, inference takes under 5ms, embeddings can be precomputed and indexed, and the metric space is mathematically grounded with cosine distance."* |
-| *"Explain your loss function formulation."* | *"We formulated a composite dual-objective loss. The Cosine Embedding Loss acts as a contrastive metric constraint to cluster suitable candidates on a unit hypersphere, while Smooth L1 loss prevents outlier sensitivity during percentage calibration."* |
-| *"How do you handle feature engineering?"* | *"We implemented a domain-specific SkillTokenizer that uses boundary-aware regex to extract technical terms against an NLP taxonomy, combined with normalized experience ratios and skill density indicators."* |
-| *"How is this deployed in production?"* | *"The PyTorch model is wrapped in an asynchronous FastAPI service, backed by SQLAlchemy and SQLite for persistence, and can be containerized with Docker or exported to ONNX for production model serving."* |
-
----
-
-## 7. Project Directory Layout
+## 6. Project Directory Layout
 
 ```
 talentpulse-ai/
@@ -168,3 +155,7 @@ talentpulse-ai/
 ├── run.sh                     # Launch script
 └── README.md                  # Complete documentation
 ```
+
+---
+
+Developed by Hamza Ihsan.

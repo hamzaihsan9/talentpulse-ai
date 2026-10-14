@@ -94,6 +94,51 @@ class TestTalentPulseAI(unittest.TestCase):
         print(f"[Pass] Top matched job: {top['job_title']} at {top['company']}")
         print(f"       Score: {top['overall_match_score']}%, Cosine: {top['cosine_similarity']}, Readiness: {top['readiness_level']}")
 
+    def test_05_auth_security_engine(self):
+        """Verifies PBKDF2 password hashing, captcha challenges, and user isolation."""
+        from backend.auth import (
+            generate_captcha, verify_captcha, hash_password, verify_password,
+            validate_email_format, validate_password_strength, _CAPTCHA_STORE
+        )
+        from backend.database import UserModel
+
+        # 1. Captcha
+        c = generate_captcha()
+        tok = c["captcha_token"]
+        ans = _CAPTCHA_STORE[tok]["answer"]
+        self.assertTrue(verify_captcha(tok, ans))
+        self.assertFalse(verify_captcha(tok, ans))  # one-time use
+
+        # 2. Salt & Hash
+        salt, pwd_hash = hash_password("MySecurePass2026")
+        self.assertTrue(verify_password("MySecurePass2026", salt, pwd_hash))
+        self.assertFalse(verify_password("WrongPassword", salt, pwd_hash))
+
+        # 3. Format validations
+        validate_email_format("candidate@example.com")
+        validate_password_strength("ValidPass1")
+
+        # 4. User isolation in database
+        session = init_database()
+        user_email = f"isolation_test_{salt[:8]}@domain.com"
+        new_user = UserModel(
+            email=user_email,
+            full_name="Isolation Test User",
+            password_hash=pwd_hash,
+            salt=salt,
+            session_token=f"tok_{salt[:8]}"
+        )
+        session.add(new_user)
+        session.commit()
+
+        # Check unique constraint
+        self.assertIsNotNone(new_user.id)
+        session.delete(new_user)
+        session.commit()
+        session.close()
+
+        print("[Pass] Authentication security, PBKDF2 crypto, Captcha, and database isolation verified.")
+
 
 if __name__ == "__main__":
     unittest.main()

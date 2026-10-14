@@ -171,6 +171,18 @@ class MatchHistoryModel(Base):
 def init_database() -> Session:
     """Creates database schema and seeds initial market jobs if empty."""
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-migrate columns if tables existed prior to auth isolation
+    with engine.connect() as conn:
+        for table, col in [("candidates", "user_id"), ("match_history", "user_id")]:
+            try:
+                cols = [row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()]
+                if col not in cols:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {col} INTEGER REFERENCES users(id)")
+                    conn.commit()
+            except Exception:
+                pass
+
     session = SessionLocal()
     
     # Seed from raw_jobs.json if jobs table is empty
